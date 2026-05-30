@@ -70,6 +70,11 @@ func NewArtifactManifest(opts ArtifactManifestOptions) (ArtifactManifest, error)
 	return artifact.NewManifest(opts)
 }
 
+// ArtifactRecordForFile returns a safe artifact record for one generated file.
+func ArtifactRecordForFile(root string, opts ArtifactFileOptions) (ArtifactRecord, error) {
+	return artifact.FileRecord(root, opts)
+}
+
 // SHA256Bytes returns the shared SHA-256 digest record for data.
 func SHA256Bytes(data []byte) DigestRecord {
 	return digest.SHA256Bytes(data)

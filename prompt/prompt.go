@@ -6,10 +6,10 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"path/filepath"
 	"strings"
 	"time"
 
+	"github.com/OpenUdon/authoring/lifecycle"
 	"github.com/OpenUdon/authoring/session"
 	"github.com/OpenUdon/authoring/transcript"
 )
@@ -303,19 +303,13 @@ func SaveTranscript(path string, record PromptTranscript) error {
 	if strings.TrimSpace(path) == "" {
 		return nil
 	}
-	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
-		return err
-	}
 	record = normalizePromptTranscript(record)
 	data, err := json.MarshalIndent(record, "", "  ")
 	if err != nil {
 		return err
 	}
 	data = append(data, '\n')
-	if err := os.WriteFile(path, data, 0o600); err != nil {
-		return err
-	}
-	return os.Chmod(path, 0o600)
+	return lifecycle.AtomicWrite(path, data, 0o600)
 }
 
 // LoadTranscript reads a prompt transcript from path.
