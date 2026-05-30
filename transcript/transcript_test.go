@@ -62,6 +62,13 @@ func TestNormalizeTranscriptDeterministic(t *testing.T) {
 	}
 }
 
+func TestNormalizeTranscriptVersionFallbackTrims(t *testing.T) {
+	got := Normalize(Record{Version: "  "})
+	if got.Version != Version {
+		t.Fatalf("version = %q, want %q", got.Version, Version)
+	}
+}
+
 func TestCanonicalJSONStable(t *testing.T) {
 	record := Record{
 		SessionID: "s1",

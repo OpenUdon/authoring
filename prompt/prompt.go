@@ -46,8 +46,8 @@ type ReplayScript struct {
 }
 
 // PromptTranscript is a persisted local transcript for prompt replay and
-// review. It embeds the M03 transcript and session records instead of defining
-// product-specific state.
+// review. It embeds the shared transcript and session records instead of
+// defining product-specific state.
 type PromptTranscript struct {
 	Version    string            `json:"version"`
 	TimeUTC    string            `json:"time_utc"`
@@ -279,8 +279,8 @@ func AssertLabelsInOrder(output string, turns []session.PromptTurn) error {
 	return nil
 }
 
-// NewTranscript builds a prompt transcript envelope from M03 session and
-// transcript records.
+// NewTranscript builds a prompt transcript envelope from session and transcript
+// records.
 func NewTranscript(sessionID string, turns []session.PromptTurn, events []transcript.Event, state session.State) PromptTranscript {
 	turns = sequenceTurns(turns)
 	record := transcript.Record{

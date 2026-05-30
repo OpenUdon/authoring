@@ -50,6 +50,12 @@ func TestStatusForCancellation(t *testing.T) {
 	if Normalize(Result{Status: "needs-input"}).Status != StatusNeedsInput {
 		t.Fatalf("needs-input spelling did not normalize")
 	}
+	if Normalize(Result{Status: "Needs-Input"}).Status != StatusNeedsInput {
+		t.Fatalf("Needs-Input spelling did not normalize")
+	}
+	if NormalizeOutcome("Needs-Input") != StatusNeedsInput {
+		t.Fatalf("Needs-Input outcome did not normalize")
+	}
 	if StatusForError(context.Canceled) != StatusCanceled {
 		t.Fatalf("canceled status = %q", StatusForError(context.Canceled))
 	}

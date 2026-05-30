@@ -8,6 +8,8 @@ import (
 	"strings"
 
 	"github.com/OpenUdon/authoring/decision"
+	"github.com/OpenUdon/authoring/internal/norm"
+	"github.com/OpenUdon/authoring/internal/records"
 	"github.com/OpenUdon/authoring/readiness"
 	"github.com/OpenUdon/authoring/session"
 	"github.com/OpenUdon/authoring/transcript"
@@ -51,7 +53,8 @@ type DecisionBehavior struct {
 	RequiresConfirmation bool   `json:"requires_confirmation,omitempty"`
 }
 
-// SessionMetadata summarizes an M03 session without embedding prompt answers.
+// SessionMetadata summarizes an authoring session without embedding prompt
+// answers.
 type SessionMetadata struct {
 	Version             string `json:"version,omitempty"`
 	ID                  string `json:"id,omitempty"`
@@ -67,7 +70,8 @@ type SessionMetadata struct {
 	DiagnosticCount     int    `json:"diagnostic_count,omitempty"`
 }
 
-// TranscriptMetadata summarizes an M03 transcript without embedding turns.
+// TranscriptMetadata summarizes an authoring transcript without embedding
+// turns.
 type TranscriptMetadata struct {
 	Version         string                      `json:"version,omitempty"`
 	SessionID       string                      `json:"session_id,omitempty"`
@@ -81,23 +85,23 @@ type TranscriptMetadata struct {
 
 // Normalize returns a deterministic result.
 func Normalize(result Result) Result {
-	result.Version = firstNonEmpty(strings.TrimSpace(result.Version), Version)
+	result.Version = norm.FirstNonEmpty(result.Version, Version)
 	result.Status = normalizeStatus(result.Status)
-	result.Summary = strings.TrimSpace(result.Summary)
+	result.Summary = norm.Trim(result.Summary)
 	result.Readiness = normalizeReadinessResult(result.Readiness)
 	result.TopIssue = normalizeTopIssue(result.TopIssue, result.Readiness)
-	result.RepairStatus = normalizeToken(result.RepairStatus)
+	result.RepairStatus = norm.Token(result.RepairStatus)
 	if result.RepairAttempts < 0 {
 		result.RepairAttempts = 0
 	}
 	result.Decisions = NormalizeDecisionBehaviors(result.Decisions)
 	result.Diagnostics = trust.NormalizeDiagnostics(result.Diagnostics)
-	result.Artifacts = normalizeArtifacts(result.Artifacts)
-	result.Digests = normalizeDigests(result.Digests)
+	result.Artifacts = records.Artifacts(result.Artifacts)
+	result.Digests = records.Digests(result.Digests)
 	result.Report = NormalizeReportMetadata(result.Report)
 	result.Session = NormalizeSessionMetadata(result.Session)
 	result.Transcript = NormalizeTranscriptMetadata(result.Transcript)
-	result.Metadata = normalizeMetadata(result.Metadata)
+	result.Metadata = norm.Metadata(result.Metadata)
 	return result
 }
 
@@ -137,8 +141,8 @@ func DecisionBehaviors(records []decision.Record) []DecisionBehavior {
 func NormalizeDecisionBehaviors(records []DecisionBehavior) []DecisionBehavior {
 	out := make([]DecisionBehavior, 0, len(records))
 	for _, record := range records {
-		record.Stage = normalizeToken(record.Stage)
-		record.Slot = strings.TrimSpace(record.Slot)
+		record.Stage = norm.Token(record.Stage)
+		record.Slot = norm.Trim(record.Slot)
 		record.Confidence = decision.NormalizeConfidence(record.Confidence)
 		record.Behavior = normalizeDecisionBehavior(record.Behavior, record.Confidence, record.RequiresConfirmation)
 		if record.Stage == "" && record.Slot == "" && record.Confidence == decision.ConfidenceReview && !record.RequiresConfirmation {
@@ -147,7 +151,7 @@ func NormalizeDecisionBehaviors(records []DecisionBehavior) []DecisionBehavior {
 		out = append(out, record)
 	}
 	slices.SortStableFunc(out, func(a, b DecisionBehavior) int {
-		return compareStrings(a.Stage, b.Stage, a.Slot, b.Slot, a.Confidence, b.Confidence, a.Behavior, b.Behavior)
+		return norm.CompareStrings(a.Stage, b.Stage, a.Slot, b.Slot, a.Confidence, b.Confidence, a.Behavior, b.Behavior)
 	})
 	return out
 }
@@ -177,12 +181,12 @@ func NormalizeSessionMetadata(metadata *SessionMetadata) *SessionMetadata {
 		return nil
 	}
 	out := *metadata
-	out.Version = strings.TrimSpace(out.Version)
-	out.ID = strings.TrimSpace(out.ID)
-	out.Goal = strings.TrimSpace(out.Goal)
-	out.Mode = normalizeToken(out.Mode)
-	out.CreatedUTC = strings.TrimSpace(out.CreatedUTC)
-	out.UpdatedUTC = strings.TrimSpace(out.UpdatedUTC)
+	out.Version = norm.Trim(out.Version)
+	out.ID = norm.Trim(out.ID)
+	out.Goal = norm.Trim(out.Goal)
+	out.Mode = norm.Token(out.Mode)
+	out.CreatedUTC = norm.Trim(out.CreatedUTC)
+	out.UpdatedUTC = norm.Trim(out.UpdatedUTC)
 	out.TurnCount = nonnegative(out.TurnCount)
 	out.AnswerCount = nonnegative(out.AnswerCount)
 	out.DecisionCount = nonnegative(out.DecisionCount)
@@ -216,9 +220,9 @@ func NormalizeTranscriptMetadata(metadata *TranscriptMetadata) *TranscriptMetada
 		return nil
 	}
 	out := *metadata
-	out.Version = strings.TrimSpace(out.Version)
-	out.SessionID = strings.TrimSpace(out.SessionID)
-	out.TimeUTC = strings.TrimSpace(out.TimeUTC)
+	out.Version = norm.Trim(out.Version)
+	out.SessionID = norm.Trim(out.SessionID)
+	out.TimeUTC = norm.Trim(out.TimeUTC)
 	out.Provider = normalizeProvider(out.Provider)
 	out.TurnCount = nonnegative(out.TurnCount)
 	out.EventCount = nonnegative(out.EventCount)
@@ -231,10 +235,10 @@ func NormalizeTranscriptMetadata(metadata *TranscriptMetadata) *TranscriptMetada
 }
 
 func normalizeStatus(status string) string {
-	switch normalizeToken(status) {
+	switch norm.Token(status) {
 	case StatusComplete:
 		return StatusComplete
-	case StatusNeedsInput, "needs-input", "need_input", "need-input":
+	case StatusNeedsInput, "need_input":
 		return StatusNeedsInput
 	case StatusCanceled, "cancelled":
 		return StatusCanceled
@@ -269,7 +273,7 @@ func normalizeTopIssue(issue *readiness.Issue, result *readiness.Result) *readin
 }
 
 func normalizeDecisionBehavior(behavior, confidence string, requiresConfirmation bool) string {
-	behavior = normalizeToken(behavior)
+	behavior = norm.Token(behavior)
 	switch behavior {
 	case decision.BehaviorAutoAccept, decision.BehaviorReview, decision.BehaviorLowConfidence, decision.BehaviorConflict:
 		return behavior
@@ -278,80 +282,21 @@ func normalizeDecisionBehavior(behavior, confidence string, requiresConfirmation
 	return decision.Behavior(record)
 }
 
-func normalizeArtifacts(artifacts []trust.ArtifactRecord) []trust.ArtifactRecord {
-	out := make([]trust.ArtifactRecord, 0, len(artifacts))
-	for _, record := range artifacts {
-		record.Path = strings.TrimSpace(record.Path)
-		record.Kind = normalizeToken(record.Kind)
-		record.MediaType = strings.TrimSpace(record.MediaType)
-		record.Classification = normalizeToken(record.Classification)
-		record.Digest = normalizeDigest(record.Digest)
-		if record.Path == "" {
-			continue
-		}
-		out = append(out, record)
-	}
-	slices.SortStableFunc(out, func(a, b trust.ArtifactRecord) int {
-		return compareStrings(a.Path, b.Path, a.Kind, b.Kind, a.MediaType, b.MediaType)
-	})
-	return out
-}
-
-func normalizeDigests(digests []trust.DigestRecord) []trust.DigestRecord {
-	out := make([]trust.DigestRecord, 0, len(digests))
-	for _, record := range digests {
-		record = normalizeDigest(record)
-		if record.Algorithm == "" && record.Value == "" {
-			continue
-		}
-		out = append(out, record)
-	}
-	slices.SortStableFunc(out, func(a, b trust.DigestRecord) int {
-		return compareStrings(a.Algorithm, b.Algorithm, a.Value, b.Value)
-	})
-	return out
-}
-
-func normalizeDigest(record trust.DigestRecord) trust.DigestRecord {
-	record.Algorithm = normalizeToken(record.Algorithm)
-	record.Value = strings.TrimSpace(record.Value)
-	return record
-}
-
 func normalizeProvider(provider *transcript.ModelProvenance) *transcript.ModelProvenance {
 	if provider == nil {
 		return nil
 	}
 	out := *provider
-	out.Provider = normalizeToken(out.Provider)
-	out.Model = strings.TrimSpace(out.Model)
-	out.Endpoint = strings.TrimSpace(out.Endpoint)
-	out.RequestID = strings.TrimSpace(out.RequestID)
-	out.ResponseID = strings.TrimSpace(out.ResponseID)
-	out.Seed = strings.TrimSpace(out.Seed)
+	out.Provider = norm.Token(out.Provider)
+	out.Model = norm.Trim(out.Model)
+	out.Endpoint = norm.Trim(out.Endpoint)
+	out.RequestID = norm.Trim(out.RequestID)
+	out.ResponseID = norm.Trim(out.ResponseID)
+	out.Seed = norm.Trim(out.Seed)
 	if out.Provider == "" && out.Model == "" && out.Endpoint == "" && out.RequestID == "" && out.ResponseID == "" && out.Seed == "" {
 		return nil
 	}
 	return &out
-}
-
-func normalizeMetadata(in map[string]string) map[string]string {
-	if len(in) == 0 {
-		return nil
-	}
-	out := make(map[string]string, len(in))
-	for key, value := range in {
-		key = strings.TrimSpace(key)
-		value = strings.TrimSpace(value)
-		if key == "" || value == "" {
-			continue
-		}
-		out[key] = value
-	}
-	if len(out) == 0 {
-		return nil
-	}
-	return out
 }
 
 func emptySessionMetadata(metadata SessionMetadata) bool {
@@ -377,30 +322,4 @@ func nonnegative(value int) int {
 		return 0
 	}
 	return value
-}
-
-func firstNonEmpty(values ...string) string {
-	for _, value := range values {
-		value = strings.TrimSpace(value)
-		if value != "" {
-			return value
-		}
-	}
-	return ""
-}
-
-func normalizeToken(value string) string {
-	return strings.ToLower(strings.Join(strings.Fields(strings.TrimSpace(value)), "_"))
-}
-
-func compareStrings(values ...string) int {
-	for i := 0; i+1 < len(values); i += 2 {
-		if values[i] < values[i+1] {
-			return -1
-		}
-		if values[i] > values[i+1] {
-			return 1
-		}
-	}
-	return 0
 }

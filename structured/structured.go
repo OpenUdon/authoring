@@ -138,12 +138,15 @@ func ExtractJSONBlock(response string) (string, error) {
 	if response == "" {
 		return "", fmt.Errorf("empty model response")
 	}
-	if strings.HasPrefix(response, "```") {
-		lines := strings.Split(response, "\n")
-		if len(lines) >= 3 {
-			body := strings.Join(lines[1:len(lines)-1], "\n")
-			return ExtractJSONBlock(body)
+	for range 8 {
+		if !strings.HasPrefix(response, "```") {
+			break
 		}
+		lines := strings.Split(response, "\n")
+		if len(lines) < 3 {
+			break
+		}
+		response = strings.TrimSpace(strings.Join(lines[1:len(lines)-1], "\n"))
 	}
 	start, end := jsonBounds(response)
 	if start < 0 || end <= start {

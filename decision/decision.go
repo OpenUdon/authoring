@@ -2,8 +2,8 @@ package decision
 
 import (
 	"slices"
-	"strings"
 
+	"github.com/OpenUdon/authoring/internal/norm"
 	"github.com/OpenUdon/authoring/trust"
 )
 
@@ -42,13 +42,13 @@ type Alternative struct {
 
 // Normalize returns a trimmed, deterministic record.
 func Normalize(record Record) Record {
-	record.Stage = normalizeToken(record.Stage)
-	record.Slot = strings.TrimSpace(record.Slot)
-	record.Value = strings.TrimSpace(record.Value)
-	record.Source = normalizeToken(record.Source)
+	record.Stage = norm.Token(record.Stage)
+	record.Slot = norm.Trim(record.Slot)
+	record.Value = norm.Trim(record.Value)
+	record.Source = norm.Token(record.Source)
 	record.Confidence = NormalizeConfidence(record.Confidence)
-	record.Rationale = strings.TrimSpace(record.Rationale)
-	record.Evidence = strings.TrimSpace(record.Evidence)
+	record.Rationale = norm.Trim(record.Rationale)
+	record.Evidence = norm.Trim(record.Evidence)
 	record.Alternatives = NormalizeAlternatives(record.Alternatives)
 	return record
 }
@@ -91,9 +91,9 @@ func NormalizeAlternatives(alternatives []Alternative) []Alternative {
 	seen := map[string]bool{}
 	out := make([]Alternative, 0, len(alternatives))
 	for _, alternative := range alternatives {
-		alternative.Value = strings.TrimSpace(alternative.Value)
-		alternative.Rationale = strings.TrimSpace(alternative.Rationale)
-		alternative.Source = normalizeToken(alternative.Source)
+		alternative.Value = norm.Trim(alternative.Value)
+		alternative.Rationale = norm.Trim(alternative.Rationale)
+		alternative.Source = norm.Token(alternative.Source)
 		if alternative.Value == "" {
 			continue
 		}
@@ -105,7 +105,7 @@ func NormalizeAlternatives(alternatives []Alternative) []Alternative {
 		out = append(out, alternative)
 	}
 	slices.SortStableFunc(out, func(a, b Alternative) int {
-		return compareStrings(a.Value, b.Value, a.Source, b.Source, a.Rationale, b.Rationale)
+		return norm.CompareStrings(a.Value, b.Value, a.Source, b.Source, a.Rationale, b.Rationale)
 	})
 	return out
 }
@@ -113,7 +113,7 @@ func NormalizeAlternatives(alternatives []Alternative) []Alternative {
 // NormalizeConfidence maps caller-specific confidence strings to generic
 // confidence states.
 func NormalizeConfidence(confidence string) string {
-	switch normalizeToken(confidence) {
+	switch norm.Token(confidence) {
 	case "", "review", "medium", "needs_review":
 		return ConfidenceReview
 	case "auto", "auto_accept", "auto_accepted", "high", "accepted":
@@ -185,7 +185,7 @@ func EventFields(record Record) map[string]string {
 func Compare(a, b Record) int {
 	a = Normalize(a)
 	b = Normalize(b)
-	return compareStrings(a.Stage, b.Stage, a.Slot, b.Slot, a.Value, b.Value, a.Source, b.Source)
+	return norm.CompareStrings(a.Stage, b.Stage, a.Slot, b.Slot, a.Value, b.Value, a.Source, b.Source)
 }
 
 func mergeRecord(base, overlay Record) Record {
@@ -261,22 +261,4 @@ func confidenceRank(confidence string) int {
 	default:
 		return 4
 	}
-}
-
-func normalizeToken(value string) string {
-	value = strings.TrimSpace(strings.ToLower(value))
-	value = strings.ReplaceAll(value, "-", "_")
-	return strings.Join(strings.Fields(value), "_")
-}
-
-func compareStrings(values ...string) int {
-	for i := 0; i+1 < len(values); i += 2 {
-		if values[i] < values[i+1] {
-			return -1
-		}
-		if values[i] > values[i+1] {
-			return 1
-		}
-	}
-	return 0
 }

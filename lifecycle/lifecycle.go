@@ -8,6 +8,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/OpenUdon/authoring/internal/norm"
+	"github.com/OpenUdon/authoring/internal/records"
 	"github.com/OpenUdon/authoring/session"
 	"github.com/OpenUdon/authoring/transcript"
 	"github.com/OpenUdon/authoring/trust"
@@ -66,8 +68,8 @@ func SaveDraft[T any](path string, draft Draft[T]) error {
 	return WriteJSON(path, NormalizeDraft(draft), 0o600)
 }
 
-// DeleteDraft removes a draft file and prunes its parent directory if empty.
-// Missing files are not an error.
+// DeleteDraft removes a draft file and best-effort prunes its parent directory
+// if empty. Missing files and parent-prune failures are not errors.
 func DeleteDraft(path string) error {
 	path = strings.TrimSpace(path)
 	if path == "" {
@@ -197,31 +199,7 @@ func NormalizeDraft[T any](draft Draft[T]) Draft[T] {
 		normalized := transcript.Normalize(*draft.Transcript)
 		draft.Transcript = &normalized
 	}
-	draft.Artifacts = normalizeArtifacts(draft.Artifacts)
-	draft.Metadata = normalizeMetadata(draft.Metadata)
+	draft.Artifacts = records.Artifacts(draft.Artifacts)
+	draft.Metadata = norm.Metadata(draft.Metadata)
 	return draft
-}
-
-func normalizeArtifacts(artifacts []trust.ArtifactRecord) []trust.ArtifactRecord {
-	normalized := session.Normalize(session.State{Artifacts: artifacts})
-	return normalized.Artifacts
-}
-
-func normalizeMetadata(in map[string]string) map[string]string {
-	if len(in) == 0 {
-		return nil
-	}
-	out := make(map[string]string, len(in))
-	for key, value := range in {
-		key = strings.TrimSpace(key)
-		value = strings.TrimSpace(value)
-		if key == "" || value == "" {
-			continue
-		}
-		out[key] = value
-	}
-	if len(out) == 0 {
-		return nil
-	}
-	return out
 }

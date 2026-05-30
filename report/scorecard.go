@@ -3,8 +3,8 @@ package report
 import (
 	"encoding/json"
 	"slices"
-	"strings"
 
+	"github.com/OpenUdon/authoring/internal/norm"
 	"github.com/OpenUdon/authoring/trust"
 )
 
@@ -84,12 +84,12 @@ type FailureFamilySummary struct {
 
 // NormalizeScorecard returns a deterministic scorecard with computed summary.
 func NormalizeScorecard(scorecard Scorecard) Scorecard {
-	scorecard.Version = firstNonEmpty(strings.TrimSpace(scorecard.Version), ScorecardVersion)
-	scorecard.Name = strings.TrimSpace(scorecard.Name)
+	scorecard.Version = norm.FirstNonEmpty(scorecard.Version, ScorecardVersion)
+	scorecard.Name = norm.Trim(scorecard.Name)
 	scorecard.Variants = NormalizeVariantResults(scorecard.Variants)
 	scorecard.Summary = SummarizeVariants(scorecard.Variants)
 	scorecard.Report = NormalizeReportMetadata(scorecard.Report)
-	scorecard.Metadata = normalizeMetadata(scorecard.Metadata)
+	scorecard.Metadata = norm.Metadata(scorecard.Metadata)
 	return scorecard
 }
 
@@ -101,8 +101,8 @@ func CanonicalScorecardJSON(scorecard Scorecard) ([]byte, error) {
 // NormalizeFixtureResult returns a deterministic fixture result and propagates
 // fixture-level identity and expected outcome to child variants when missing.
 func NormalizeFixtureResult(fixture FixtureResult) FixtureResult {
-	fixture.FixtureID = strings.TrimSpace(fixture.FixtureID)
-	fixture.Group = normalizeToken(fixture.Group)
+	fixture.FixtureID = norm.Trim(fixture.FixtureID)
+	fixture.Group = norm.Token(fixture.Group)
 	fixture.ExpectedOutcome = NormalizeOutcome(fixture.ExpectedOutcome)
 	for i := range fixture.Variants {
 		if fixture.Variants[i].FixtureID == "" {
@@ -116,7 +116,7 @@ func NormalizeFixtureResult(fixture FixtureResult) FixtureResult {
 		}
 	}
 	fixture.Variants = NormalizeVariantResults(fixture.Variants)
-	fixture.Metadata = normalizeMetadata(fixture.Metadata)
+	fixture.Metadata = norm.Metadata(fixture.Metadata)
 	return fixture
 }
 
@@ -136,16 +136,16 @@ func NormalizeVariantResults(results []VariantResult) []VariantResult {
 
 // NormalizeVariantResult returns a deterministic variant result.
 func NormalizeVariantResult(result VariantResult) VariantResult {
-	result.FixtureID = strings.TrimSpace(result.FixtureID)
-	result.VariantID = strings.TrimSpace(result.VariantID)
-	result.Group = normalizeToken(result.Group)
+	result.FixtureID = norm.Trim(result.FixtureID)
+	result.VariantID = norm.Trim(result.VariantID)
+	result.Group = norm.Token(result.Group)
 	result.ExpectedOutcome = NormalizeOutcome(result.ExpectedOutcome)
 	result.ObservedOutcome = NormalizeOutcome(result.ObservedOutcome)
 	result.OutcomeMatched = CompareOutcome(result.ExpectedOutcome, result.ObservedOutcome)
 	result.FailureFamily = normalizeFailureFamily(result.FailureFamily, result)
-	result.Message = strings.TrimSpace(result.Message)
+	result.Message = norm.Trim(result.Message)
 	result.Diagnostics = trust.NormalizeDiagnostics(result.Diagnostics)
-	result.Metadata = normalizeMetadata(result.Metadata)
+	result.Metadata = norm.Metadata(result.Metadata)
 	return result
 }
 
@@ -153,15 +153,15 @@ func NormalizeVariantResult(result VariantResult) VariantResult {
 func CompareVariantResult(a, b VariantResult) int {
 	a = NormalizeVariantResult(a)
 	b = NormalizeVariantResult(b)
-	return compareStrings(a.Group, b.Group, a.FixtureID, b.FixtureID, a.VariantID, b.VariantID, a.ObservedOutcome, b.ObservedOutcome)
+	return norm.CompareStrings(a.Group, b.Group, a.FixtureID, b.FixtureID, a.VariantID, b.VariantID, a.ObservedOutcome, b.ObservedOutcome)
 }
 
 // NormalizeOutcome maps common outcome strings to generic scorecard outcomes.
 func NormalizeOutcome(outcome string) string {
-	switch normalizeToken(outcome) {
+	switch norm.Token(outcome) {
 	case StatusComplete, "pass", "passed", "success", "succeeded":
 		return StatusComplete
-	case StatusNeedsInput, "needs-input", "need_input", "input_required":
+	case StatusNeedsInput, "need_input", "input_required":
 		return StatusNeedsInput
 	case StatusFailed, "fail", "failure", "error":
 		return StatusFailed
@@ -172,7 +172,7 @@ func NormalizeOutcome(outcome string) string {
 	case "":
 		return ""
 	default:
-		return normalizeToken(outcome)
+		return norm.Token(outcome)
 	}
 }
 
@@ -198,7 +198,7 @@ func SummarizeVariants(results []VariantResult) ScorecardSummary {
 				summary.ExpectedMismatched++
 			}
 		}
-		group := firstNonEmpty(result.Group, "default")
+		group := norm.FirstNonEmpty(result.Group, "default")
 		if groups[group] == nil {
 			groups[group] = &GroupSummary{Group: group}
 		}
@@ -238,7 +238,7 @@ func ValidateScorecard(scorecard Scorecard) []trust.DiagnosticRecord {
 }
 
 func normalizeFailureFamily(family string, result VariantResult) string {
-	family = normalizeToken(family)
+	family = norm.Token(family)
 	if family != "" {
 		return family
 	}
@@ -292,7 +292,7 @@ func sortedGroupSummaries(groups map[string]*GroupSummary) []GroupSummary {
 		out = append(out, *group)
 	}
 	slices.SortStableFunc(out, func(a, b GroupSummary) int {
-		return compareStrings(a.Group, b.Group)
+		return norm.CompareStrings(a.Group, b.Group)
 	})
 	return out
 }
@@ -303,7 +303,7 @@ func sortedFailureFamilySummaries(families map[string]*FailureFamilySummary) []F
 		out = append(out, *family)
 	}
 	slices.SortStableFunc(out, func(a, b FailureFamilySummary) int {
-		return compareStrings(a.Family, b.Family)
+		return norm.CompareStrings(a.Family, b.Family)
 	})
 	return out
 }
@@ -314,7 +314,7 @@ func scorecardDiagnostic(code string, result VariantResult, message string) trus
 		Severity: "error",
 		Message:  message,
 		Location: trust.DiagnosticLocation{
-			Address: firstNonEmpty(result.FixtureID, result.VariantID),
+			Address: norm.FirstNonEmpty(result.FixtureID, result.VariantID),
 		},
 	}
 }

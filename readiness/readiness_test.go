@@ -4,6 +4,8 @@ import (
 	"testing"
 
 	"github.com/OpenUdon/authoring/decision"
+	"github.com/OpenUdon/authoring/session"
+	"github.com/OpenUdon/authoring/transcript"
 )
 
 func TestEvaluateBlockingWarningAndTopIssue(t *testing.T) {
@@ -35,6 +37,29 @@ func TestReadyAllowsWarnings(t *testing.T) {
 	}
 	if Ready([]Issue{{Code: "custom", Severity: "needs review"}}) {
 		t.Fatalf("unknown severity should block by default")
+	}
+}
+
+func TestUnknownSeverityOrderingMatchesSessionAndTranscript(t *testing.T) {
+	issues := []Issue{
+		{Code: "info", Severity: "info"},
+		{Code: "unknown", Severity: "needs-review"},
+		{Code: "warning", Severity: "warning"},
+	}
+	if got := NormalizeIssues(issues); len(got) != 3 || got[0].Code != "unknown" {
+		t.Fatalf("readiness issues = %#v, want unknown severity first", got)
+	}
+	state := session.Normalize(session.State{Readiness: issues})
+	if len(state.Readiness) != 3 || state.Readiness[0].Code != "unknown" {
+		t.Fatalf("session readiness = %#v, want unknown severity first", state.Readiness)
+	}
+	record := transcript.Normalize(transcript.Record{Events: []transcript.Event{
+		{Type: "event", Severity: "info", Message: "info"},
+		{Type: "event", Severity: "needs-review", Message: "unknown"},
+		{Type: "event", Severity: "warning", Message: "warning"},
+	}})
+	if len(record.Events) != 3 || record.Events[0].Message != "unknown" {
+		t.Fatalf("transcript events = %#v, want unknown severity first", record.Events)
 	}
 }
 

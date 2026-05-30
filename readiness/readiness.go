@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/OpenUdon/authoring/decision"
+	"github.com/OpenUdon/authoring/internal/norm"
 	"github.com/OpenUdon/authoring/session"
 )
 
@@ -174,10 +175,10 @@ func IsWarning(issue Issue) bool {
 
 // CompareIssue orders readiness issues deterministically.
 func CompareIssue(a, b Issue) int {
-	if diff := severityRank(severity(a)) - severityRank(severity(b)); diff != 0 {
+	if diff := norm.CompareSeverity(severity(a), severity(b)); diff != 0 {
 		return diff
 	}
-	return compareStrings(a.Code, b.Code, a.Slot, b.Slot, a.Message, b.Message, a.SuggestedAnswer, b.SuggestedAnswer)
+	return norm.CompareStrings(a.Code, b.Code, a.Slot, b.Slot, a.Message, b.Message, a.SuggestedAnswer, b.SuggestedAnswer)
 }
 
 // DecisionIssues projects decision evidence that needs confirmation into
@@ -199,7 +200,7 @@ func NormalizeQuestion(question Question) Question {
 	question.ID = strings.TrimSpace(question.ID)
 	question.Prompt = strings.TrimSpace(question.Prompt)
 	question.DefaultAnswer = strings.TrimSpace(question.DefaultAnswer)
-	question.DefaultSource = normalizeToken(question.DefaultSource)
+	question.DefaultSource = norm.Token(question.DefaultSource)
 	question.Slots = normalizeSlots(question.Slots)
 	if question.Forced {
 		question.Required = true
@@ -278,7 +279,7 @@ func DefaultAnswer(question Question) (string, string, bool) {
 	if question.Forced || !question.AllowDefault || question.DefaultAnswer == "" {
 		return "", "", false
 	}
-	return question.DefaultAnswer, firstNonEmpty(question.DefaultSource, DefaultAnswerSource), true
+	return question.DefaultAnswer, norm.FirstNonEmpty(question.DefaultSource, DefaultAnswerSource), true
 }
 
 // CompareQuestion orders question plans deterministically.
@@ -294,7 +295,7 @@ func CompareQuestion(a, b Question) int {
 	if diff := boolRank(b.AllowDefault) - boolRank(a.AllowDefault); diff != 0 {
 		return diff
 	}
-	return compareStrings(a.ID, b.ID, strings.Join(a.Slots, "\x00"), strings.Join(b.Slots, "\x00"), a.Prompt, b.Prompt)
+	return norm.CompareStrings(a.ID, b.ID, strings.Join(a.Slots, "\x00"), strings.Join(b.Slots, "\x00"), a.Prompt, b.Prompt)
 }
 
 func decisionIssue(record decision.Record) Issue {
@@ -319,22 +320,7 @@ func decisionIssue(record decision.Record) Issue {
 }
 
 func severity(issue Issue) string {
-	return normalizeToken(issue.Severity)
-}
-
-func severityRank(severity string) int {
-	switch normalizeToken(severity) {
-	case "", "error", SeverityBlocking:
-		return 0
-	case SeverityWarning:
-		return 1
-	case SeverityAdvisory:
-		return 2
-	case SeverityInfo:
-		return 3
-	default:
-		return 0
-	}
+	return norm.Token(issue.Severity)
 }
 
 func normalizeSlots(slots []string) []string {
@@ -352,7 +338,7 @@ func normalizeSlots(slots []string) []string {
 }
 
 func issueID(issue Issue) string {
-	return firstNonEmpty(issue.Code, issue.Slot)
+	return norm.FirstNonEmpty(issue.Code, issue.Slot)
 }
 
 func issueSlots(issue Issue) []string {
@@ -371,30 +357,4 @@ func boolRank(value bool) int {
 		return 1
 	}
 	return 0
-}
-
-func compareStrings(values ...string) int {
-	for i := 0; i+1 < len(values); i += 2 {
-		if values[i] < values[i+1] {
-			return -1
-		}
-		if values[i] > values[i+1] {
-			return 1
-		}
-	}
-	return 0
-}
-
-func firstNonEmpty(values ...string) string {
-	for _, value := range values {
-		value = strings.TrimSpace(value)
-		if value != "" {
-			return value
-		}
-	}
-	return ""
-}
-
-func normalizeToken(value string) string {
-	return strings.ToLower(strings.Join(strings.Fields(strings.TrimSpace(value)), "_"))
 }

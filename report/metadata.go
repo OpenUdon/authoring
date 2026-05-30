@@ -4,6 +4,8 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/OpenUdon/authoring/internal/norm"
+	"github.com/OpenUdon/authoring/internal/records"
 	"github.com/OpenUdon/authoring/trust"
 )
 
@@ -46,17 +48,17 @@ func NormalizeReportMetadata(metadata *ReportMetadata) *ReportMetadata {
 		return nil
 	}
 	out := *metadata
-	out.Version = firstNonEmpty(strings.TrimSpace(out.Version), MetadataVersion)
-	out.RunID = strings.TrimSpace(out.RunID)
-	out.Command = strings.TrimSpace(out.Command)
-	out.Commit = strings.TrimSpace(out.Commit)
-	out.GeneratedUTC = strings.TrimSpace(out.GeneratedUTC)
+	out.Version = norm.FirstNonEmpty(out.Version, MetadataVersion)
+	out.RunID = norm.Trim(out.RunID)
+	out.Command = norm.Trim(out.Command)
+	out.Commit = norm.Trim(out.Commit)
+	out.GeneratedUTC = norm.Trim(out.GeneratedUTC)
 	out.RetentionClass = NormalizeRetentionClass(out.RetentionClass)
 	if out.RedactionRequired {
 		out.ArchiveSafe = false
 	}
 	out.DigestSidecars = NormalizeDigestSidecars(out.DigestSidecars)
-	out.Metadata = normalizeMetadata(out.Metadata)
+	out.Metadata = norm.Metadata(out.Metadata)
 	if emptyReportMetadata(out) {
 		return nil
 	}
@@ -66,7 +68,7 @@ func NormalizeReportMetadata(metadata *ReportMetadata) *ReportMetadata {
 // NormalizeRetentionClass maps caller-specific retention names to generic
 // retention classes.
 func NormalizeRetentionClass(retention string) string {
-	switch normalizeToken(retention) {
+	switch norm.Token(retention) {
 	case RetentionEphemeral, "temporary", "temp":
 		return RetentionEphemeral
 	case RetentionArchive, "archival", "long_term":
@@ -88,7 +90,7 @@ func DigestSidecarForBytes(path, kind string, data []byte) DigestSidecar {
 	})
 }
 
-// DigestSidecarForArtifact returns a sidecar from an M02 artifact record.
+// DigestSidecarForArtifact returns a sidecar from an artifact record.
 func DigestSidecarForArtifact(record trust.ArtifactRecord) DigestSidecar {
 	return NormalizeDigestSidecar(DigestSidecar{
 		Path:      record.Path,
@@ -116,11 +118,11 @@ func NormalizeDigestSidecars(sidecars []DigestSidecar) []DigestSidecar {
 // NormalizeDigestSidecar returns deterministic digest sidecar metadata.
 func NormalizeDigestSidecar(sidecar DigestSidecar) DigestSidecar {
 	sidecar.Path = cleanSidecarPath(sidecar.Path)
-	sidecar.Kind = normalizeToken(sidecar.Kind)
+	sidecar.Kind = norm.Token(sidecar.Kind)
 	if sidecar.SizeBytes < 0 {
 		sidecar.SizeBytes = 0
 	}
-	sidecar.Digest = normalizeDigest(sidecar.Digest)
+	sidecar.Digest = records.Digest(sidecar.Digest)
 	return sidecar
 }
 
@@ -140,7 +142,7 @@ func cleanSidecarPath(path string) string {
 func CompareDigestSidecar(a, b DigestSidecar) int {
 	a = NormalizeDigestSidecar(a)
 	b = NormalizeDigestSidecar(b)
-	return compareStrings(a.Path, b.Path, a.Kind, b.Kind, a.Digest.Algorithm, b.Digest.Algorithm, a.Digest.Value, b.Digest.Value)
+	return norm.CompareStrings(a.Path, b.Path, a.Kind, b.Kind, a.Digest.Algorithm, b.Digest.Algorithm, a.Digest.Value, b.Digest.Value)
 }
 
 // WithRedactionRequirement returns metadata with RedactionRequired propagated

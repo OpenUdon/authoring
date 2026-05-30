@@ -7,6 +7,7 @@ import (
 	"io"
 	"strings"
 
+	"github.com/OpenUdon/authoring/internal/norm"
 	"github.com/OpenUdon/authoring/prompt"
 	readinesspkg "github.com/OpenUdon/authoring/readiness"
 	"github.com/OpenUdon/authoring/session"
@@ -186,7 +187,7 @@ func confirm[S, D, A any](ctx context.Context, opts Options[S, D, A], prompts *p
 
 func answerQuestion(prompts *prompt.Session, question Question) (string, string, error) {
 	if question.AllowDefault && !question.Forced && strings.TrimSpace(question.DefaultAnswer) != "" {
-		return strings.TrimSpace(question.DefaultAnswer), firstNonEmpty(question.DefaultSource, "default"), nil
+		return strings.TrimSpace(question.DefaultAnswer), norm.FirstNonEmpty(question.DefaultSource, "default"), nil
 	}
 	switch {
 	case question.Forced:
@@ -260,14 +261,4 @@ func finishResult[S, A any](state S, artifact A, events []transcript.Event, turn
 		Turns:     session.Normalize(session.State{Turns: turns}).Turns,
 		Completed: completed,
 	}
-}
-
-func firstNonEmpty(values ...string) string {
-	for _, value := range values {
-		value = strings.TrimSpace(value)
-		if value != "" {
-			return value
-		}
-	}
-	return ""
 }

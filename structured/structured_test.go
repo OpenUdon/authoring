@@ -127,6 +127,9 @@ func TestSchemaNormalizationAndDecodeHelpers(t *testing.T) {
 	if jsonText, err := ExtractJSONBlock("prefix [1,{\"x\":\"}\"}] suffix"); err != nil || jsonText != `[1,{"x":"}"}]` {
 		t.Fatalf("ExtractJSONBlock = %q, %v", jsonText, err)
 	}
+	if jsonText, err := ExtractJSONBlock("```markdown\n```json\n{\"name\":\"nested\"}\n```\n```"); err != nil || jsonText != `{"name":"nested"}` {
+		t.Fatalf("nested ExtractJSONBlock = %q, %v", jsonText, err)
+	}
 	var got output
 	if err := DecodeJSONBlock("```json\n{\"name\":\"decoded\"}\n```", &got); err != nil {
 		t.Fatalf("DecodeJSONBlock returned error: %v", err)

@@ -5,6 +5,8 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/OpenUdon/authoring/internal/norm"
+	"github.com/OpenUdon/authoring/internal/records"
 	"github.com/OpenUdon/authoring/trust"
 )
 
@@ -86,7 +88,7 @@ type CredentialBinding struct {
 
 // Normalize returns a deterministic prompt-safe context.
 func Normalize(ctx Context) Context {
-	ctx.Version = firstNonEmpty(strings.TrimSpace(ctx.Version), Version)
+	ctx.Version = norm.FirstNonEmpty(ctx.Version, Version)
 	ctx.Sources = NormalizeSources(ctx.Sources)
 	ctx.Operations = NormalizeOperations(ctx.Operations)
 	ctx.Schemas = NormalizeSchemas(ctx.Schemas)
@@ -105,13 +107,13 @@ func NormalizeSources(sources []SourceDocument) []SourceDocument {
 	out := make([]SourceDocument, 0, len(sources))
 	for _, source := range sources {
 		source.ID = strings.TrimSpace(source.ID)
-		source.Kind = normalizeToken(source.Kind)
+		source.Kind = norm.Token(source.Kind)
 		source.Title = redact(source.Title)
 		source.Version = strings.TrimSpace(source.Version)
 		source.URI = redact(source.URI)
 		source.MediaType = strings.TrimSpace(source.MediaType)
 		source.Summary = redact(source.Summary)
-		source.Digest = normalizeDigest(source.Digest)
+		source.Digest = records.Digest(source.Digest)
 		source.Metadata = normalizeMetadata(source.Metadata)
 		if source.ID == "" {
 			continue
@@ -119,7 +121,7 @@ func NormalizeSources(sources []SourceDocument) []SourceDocument {
 		out = append(out, source)
 	}
 	slices.SortStableFunc(out, func(a, b SourceDocument) int {
-		return compareStrings(a.ID, b.ID, a.Kind, b.Kind, a.Title, b.Title)
+		return norm.CompareStrings(a.ID, b.ID, a.Kind, b.Kind, a.Title, b.Title)
 	})
 	return out
 }
@@ -139,7 +141,7 @@ func NormalizeOperations(operations []OperationCandidate) []OperationCandidate {
 		operation.ResponseSchemaID = strings.TrimSpace(operation.ResponseSchemaID)
 		operation.CredentialBindings = normalizeList(operation.CredentialBindings, false)
 		operation.Tags = normalizeList(operation.Tags, true)
-		operation.Confidence = normalizeToken(operation.Confidence)
+		operation.Confidence = norm.Token(operation.Confidence)
 		operation.SelectionRationale = redact(operation.SelectionRationale)
 		operation.Metadata = normalizeMetadata(operation.Metadata)
 		if operation.ID == "" {
@@ -148,7 +150,7 @@ func NormalizeOperations(operations []OperationCandidate) []OperationCandidate {
 		out = append(out, operation)
 	}
 	slices.SortStableFunc(out, func(a, b OperationCandidate) int {
-		return compareStrings(a.ID, b.ID, a.SourceID, b.SourceID, a.OperationID, b.OperationID)
+		return norm.CompareStrings(a.ID, b.ID, a.SourceID, b.SourceID, a.OperationID, b.OperationID)
 	})
 	return out
 }
@@ -159,7 +161,7 @@ func NormalizeSchemas(schemas []SchemaHint) []SchemaHint {
 	for _, schema := range schemas {
 		schema.ID = strings.TrimSpace(schema.ID)
 		schema.Name = redact(schema.Name)
-		schema.Purpose = normalizeToken(schema.Purpose)
+		schema.Purpose = norm.Token(schema.Purpose)
 		schema.MediaType = strings.TrimSpace(schema.MediaType)
 		schema.Summary = redact(schema.Summary)
 		schema.Required = normalizeList(schema.Required, false)
@@ -172,7 +174,7 @@ func NormalizeSchemas(schemas []SchemaHint) []SchemaHint {
 		out = append(out, schema)
 	}
 	slices.SortStableFunc(out, func(a, b SchemaHint) int {
-		return compareStrings(a.ID, b.ID, a.Name, b.Name)
+		return norm.CompareStrings(a.ID, b.ID, a.Name, b.Name)
 	})
 	return out
 }
@@ -182,7 +184,7 @@ func NormalizeFields(fields []FieldHint) []FieldHint {
 	out := make([]FieldHint, 0, len(fields))
 	for _, field := range fields {
 		field.Name = strings.TrimSpace(field.Name)
-		field.Type = normalizeToken(field.Type)
+		field.Type = norm.Token(field.Type)
 		field.Summary = redact(field.Summary)
 		if field.Name == "" {
 			continue
@@ -190,7 +192,7 @@ func NormalizeFields(fields []FieldHint) []FieldHint {
 		out = append(out, field)
 	}
 	slices.SortStableFunc(out, func(a, b FieldHint) int {
-		return compareStrings(a.Name, b.Name, a.Type, b.Type)
+		return norm.CompareStrings(a.Name, b.Name, a.Type, b.Type)
 	})
 	return out
 }
@@ -200,8 +202,8 @@ func NormalizeCredentials(credentials []CredentialBinding) []CredentialBinding {
 	out := make([]CredentialBinding, 0, len(credentials))
 	for _, credential := range credentials {
 		credential.Name = strings.TrimSpace(credential.Name)
-		credential.Kind = normalizeToken(credential.Kind)
-		credential.Scope = normalizeToken(credential.Scope)
+		credential.Kind = norm.Token(credential.Kind)
+		credential.Scope = norm.Token(credential.Scope)
 		credential.Summary = redact(credential.Summary)
 		credential.Metadata = normalizeMetadata(credential.Metadata)
 		if credential.Name == "" {
@@ -210,7 +212,7 @@ func NormalizeCredentials(credentials []CredentialBinding) []CredentialBinding {
 		out = append(out, credential)
 	}
 	slices.SortStableFunc(out, func(a, b CredentialBinding) int {
-		return compareStrings(a.Name, b.Name, a.Kind, b.Kind, a.Scope, b.Scope)
+		return norm.CompareStrings(a.Name, b.Name, a.Kind, b.Kind, a.Scope, b.Scope)
 	})
 	return out
 }
@@ -220,7 +222,7 @@ func normalizeList(values []string, token bool) []string {
 	out := make([]string, 0, len(values))
 	for _, value := range values {
 		if token {
-			value = normalizeToken(value)
+			value = norm.Token(value)
 		} else {
 			value = strings.TrimSpace(value)
 		}
@@ -269,12 +271,6 @@ func redactMetadataValue(key, value string) string {
 	return redact(value)
 }
 
-func normalizeDigest(record trust.DigestRecord) trust.DigestRecord {
-	record.Algorithm = normalizeToken(record.Algorithm)
-	record.Value = strings.TrimSpace(record.Value)
-	return record
-}
-
 func normalizeVerb(verb string) string {
 	verb = strings.TrimSpace(verb)
 	if verb == "" {
@@ -285,30 +281,4 @@ func normalizeVerb(verb string) string {
 
 func redact(value string) string {
 	return trust.RedactString(strings.TrimSpace(value))
-}
-
-func firstNonEmpty(values ...string) string {
-	for _, value := range values {
-		value = strings.TrimSpace(value)
-		if value != "" {
-			return value
-		}
-	}
-	return ""
-}
-
-func normalizeToken(value string) string {
-	return strings.ToLower(strings.Join(strings.Fields(strings.TrimSpace(value)), "_"))
-}
-
-func compareStrings(values ...string) int {
-	for i := 0; i+1 < len(values); i += 2 {
-		if values[i] < values[i+1] {
-			return -1
-		}
-		if values[i] > values[i+1] {
-			return 1
-		}
-	}
-	return 0
 }

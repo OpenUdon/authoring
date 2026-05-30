@@ -67,6 +67,13 @@ func TestNormalizeSessionDeterministic(t *testing.T) {
 	}
 }
 
+func TestNormalizeSessionVersionFallbackTrims(t *testing.T) {
+	got := Normalize(State{Version: "  "})
+	if got.Version != Version {
+		t.Fatalf("version = %q, want %q", got.Version, Version)
+	}
+}
+
 func TestCanonicalJSONStable(t *testing.T) {
 	state := State{
 		ID:      "s1",

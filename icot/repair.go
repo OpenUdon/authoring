@@ -7,6 +7,7 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/OpenUdon/authoring/internal/norm"
 	readinesspkg "github.com/OpenUdon/authoring/readiness"
 	"github.com/OpenUdon/authoring/transcript"
 )
@@ -112,10 +113,10 @@ func NormalizeReviewIssues(issues []ReviewIssue) []ReviewIssue {
 // NormalizeRemediation returns deterministic product-neutral remediation
 // metadata.
 func NormalizeRemediation(remediation Remediation) Remediation {
-	remediation.Code = normalizeToken(remediation.Code)
-	remediation.Slot = strings.TrimSpace(remediation.Slot)
-	remediation.Action = normalizeToken(remediation.Action)
-	remediation.Message = strings.TrimSpace(remediation.Message)
+	remediation.Code = norm.Token(remediation.Code)
+	remediation.Slot = norm.Trim(remediation.Slot)
+	remediation.Action = norm.Token(remediation.Action)
+	remediation.Message = norm.Trim(remediation.Message)
 	return remediation
 }
 
@@ -131,7 +132,7 @@ func CompareReviewIssue(a, b ReviewIssue) int {
 	if b.Remediation != nil {
 		br = NormalizeRemediation(*b.Remediation)
 	}
-	return compareStrings(ar.Code, br.Code, ar.Slot, br.Slot, ar.Action, br.Action, ar.Message, br.Message)
+	return norm.CompareStrings(ar.Code, br.Code, ar.Slot, br.Slot, ar.Action, br.Action, ar.Message, br.Message)
 }
 
 // RunRepair reviews a draft and invokes the downstream repair hook until it is
@@ -211,8 +212,8 @@ func RunRepair[S, D, A any](ctx context.Context, opts RepairOptions[S, D, A]) (R
 	}
 }
 
-// RunRuntimeRepair runs a bounded repair pass through the M08 review/repair
-// runtime hook shapes.
+// RunRuntimeRepair runs a bounded repair pass through the runtime review and
+// repair hook shapes.
 func RunRuntimeRepair[S, D, A any](ctx context.Context, runtime RepairRuntime[S, D, A], config RepairConfig[S, D, A]) (RepairResult[S], error) {
 	if runtime == nil {
 		return RepairResult[S]{}, fmt.Errorf("icot repair runtime is required")
@@ -298,20 +299,4 @@ func (log *eventLog) Events() []transcript.Event {
 
 func emptyRemediation(remediation Remediation) bool {
 	return remediation.Code == "" && remediation.Slot == "" && remediation.Action == "" && remediation.Message == ""
-}
-
-func normalizeToken(value string) string {
-	return strings.ToLower(strings.Join(strings.Fields(strings.TrimSpace(value)), "_"))
-}
-
-func compareStrings(values ...string) int {
-	for i := 0; i+1 < len(values); i += 2 {
-		if values[i] < values[i+1] {
-			return -1
-		}
-		if values[i] > values[i+1] {
-			return 1
-		}
-	}
-	return 0
 }

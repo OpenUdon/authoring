@@ -42,12 +42,12 @@ type DraftPolicyRuntime[S, D any] interface {
 	ShouldDraft(S, []D, []session.ReadinessIssue, int) bool
 }
 
-// DraftReviewRuntime defines the generic review hook shape stabilized for M11.
+// DraftReviewRuntime defines the generic draft review hook shape.
 type DraftReviewRuntime[S, D, A any] interface {
 	ReviewDraft(context.Context, S, []D, A) ([]session.ReadinessIssue, error)
 }
 
-// DraftRepairRuntime defines the generic repair hook shape stabilized for M11.
+// DraftRepairRuntime defines the generic draft repair hook shape.
 type DraftRepairRuntime[S, D any] interface {
 	RepairDraft(context.Context, *S, []D, []session.ReadinessIssue, int) (bool, error)
 }
@@ -62,7 +62,7 @@ type RuntimeConfig[S, D any] struct {
 	AfterDraft  func(S) error
 }
 
-// BindRuntime converts a bound runtime into M07 loop options.
+// BindRuntime converts a bound runtime into loop options.
 func BindRuntime[S, D, A any](runtime Runtime[S, D, A], config RuntimeConfig[S, D]) (Options[S, D, A], error) {
 	if runtime == nil {
 		return Options[S, D, A]{}, fmt.Errorf("icot runtime is required")
