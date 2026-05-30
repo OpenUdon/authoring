@@ -23,7 +23,9 @@ model-provider clients, live execution, governance, state, or reconciliation.
 - `lifecycle`: draft envelopes, atomic writes, autosave, and artifact helpers.
 - `structured`: provider-neutral structured JSON completion and legacy JSON
   fallback.
-- `icot`: generic progressive loops and bound-runtime interfaces.
+- `icot`: generic progressive and interactive iCoT loops, lifecycle hooks, and
+  bound-runtime interfaces.
+- `icotcli`: shared iCoT CLI flag plumbing and prompt/model label helpers.
 - `readiness`: readiness summaries, blocking/warning sorting, and question
   planning.
 - `decision`: decision evidence, confidence behavior, and confirmation policy.
