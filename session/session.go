@@ -62,8 +62,11 @@ type ReadinessIssue struct {
 	Code            string                   `json:"code"`
 	Severity        string                   `json:"severity,omitempty"`
 	Slot            string                   `json:"slot,omitempty"`
+	OperationID     string                   `json:"operation_id,omitempty"`
+	Path            string                   `json:"path,omitempty"`
 	Message         string                   `json:"message,omitempty"`
 	SuggestedAnswer string                   `json:"suggested_answer,omitempty"`
+	Remediation     string                   `json:"remediation,omitempty"`
 	Diagnostic      *trust.DiagnosticRecord  `json:"diagnostic,omitempty"`
 	Diagnostics     []trust.DiagnosticRecord `json:"diagnostics,omitempty"`
 }
@@ -149,8 +152,11 @@ func normalizeReadiness(issues []ReadinessIssue) []ReadinessIssue {
 		issue.Code = norm.Token(issue.Code)
 		issue.Severity = norm.Token(issue.Severity)
 		issue.Slot = norm.Trim(issue.Slot)
+		issue.OperationID = norm.Trim(issue.OperationID)
+		issue.Path = norm.Trim(issue.Path)
 		issue.Message = norm.Trim(issue.Message)
 		issue.SuggestedAnswer = norm.Trim(issue.SuggestedAnswer)
+		issue.Remediation = norm.Trim(issue.Remediation)
 		if issue.Diagnostic != nil {
 			diagnostic := trust.NormalizeDiagnostics([]trust.DiagnosticRecord{*issue.Diagnostic})[0]
 			if diagnostic.Code == "" && diagnostic.Message == "" {
@@ -160,7 +166,7 @@ func normalizeReadiness(issues []ReadinessIssue) []ReadinessIssue {
 			}
 		}
 		issue.Diagnostics = trust.NormalizeDiagnostics(issue.Diagnostics)
-		if issue.Code == "" && issue.Message == "" && issue.Diagnostic == nil && len(issue.Diagnostics) == 0 {
+		if issue.Code == "" && issue.Message == "" && issue.OperationID == "" && issue.Path == "" && issue.Remediation == "" && issue.Diagnostic == nil && len(issue.Diagnostics) == 0 {
 			continue
 		}
 		out = append(out, issue)
@@ -177,7 +183,7 @@ func compareReadiness(a, b ReadinessIssue) int {
 	if diff := norm.CompareSeverity(a.Severity, b.Severity); diff != 0 {
 		return diff
 	}
-	return norm.CompareStrings(a.Code, b.Code, a.Slot, b.Slot, a.Message, b.Message)
+	return norm.CompareStrings(a.Code, b.Code, a.Slot, b.Slot, a.OperationID, b.OperationID, a.Path, b.Path, a.Message, b.Message)
 }
 
 func emptyTurn(turn PromptTurn) bool {

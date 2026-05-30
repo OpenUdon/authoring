@@ -100,6 +100,18 @@ func TestRunInteractiveOpeningDraftAutosaveTranscript(t *testing.T) {
 	if len(transcriptTurns) == 0 || len(transcriptEvents) == 0 {
 		t.Fatalf("transcript turns=%#v events=%#v", transcriptTurns, transcriptEvents)
 	}
+	if transcriptTurns[0].Label == "" || transcriptTurns[0].Source == "" {
+		t.Fatalf("turn = %#v, want durable prompt-turn metadata", transcriptTurns[0])
+	}
+	for _, event := range transcriptEvents {
+		if event.Kind == "" || event.Type == "" {
+			t.Fatalf("event = %#v, want kind and type compatibility fields", event)
+		}
+	}
+	projected := TranscriptEvents(transcriptEvents)
+	if len(projected) == 0 || projected[0].Type == "" {
+		t.Fatalf("projected events = %#v, want durable transcript projection", projected)
+	}
 }
 
 func TestRunInteractiveQuestionDraftAndNeedsInput(t *testing.T) {

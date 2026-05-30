@@ -50,14 +50,17 @@ type Summary struct {
 
 // Question is a product-neutral follow-up question plan.
 type Question struct {
-	ID            string   `json:"id,omitempty"`
-	Prompt        string   `json:"prompt,omitempty"`
-	Slots         []string `json:"slots,omitempty"`
-	Required      bool     `json:"required,omitempty"`
-	Forced        bool     `json:"forced,omitempty"`
-	AllowDefault  bool     `json:"allow_default,omitempty"`
-	DefaultAnswer string   `json:"default_answer,omitempty"`
-	DefaultSource string   `json:"default_source,omitempty"`
+	ID              string   `json:"id,omitempty"`
+	Prompt          string   `json:"prompt,omitempty"`
+	Slots           []string `json:"slots,omitempty"`
+	Required        bool     `json:"required,omitempty"`
+	Forced          bool     `json:"forced,omitempty"`
+	ForceAsk        bool     `json:"force_ask,omitempty"`
+	AllowDefault    bool     `json:"allow_default,omitempty"`
+	DefaultAnswer   string   `json:"default_answer,omitempty"`
+	SuggestedAnswer string   `json:"suggested_answer,omitempty"`
+	DefaultSource   string   `json:"default_source,omitempty"`
+	Grouped         bool     `json:"grouped,omitempty"`
 }
 
 // Plan is a deterministic set of planned questions.
@@ -178,7 +181,7 @@ func CompareIssue(a, b Issue) int {
 	if diff := norm.CompareSeverity(severity(a), severity(b)); diff != 0 {
 		return diff
 	}
-	return norm.CompareStrings(a.Code, b.Code, a.Slot, b.Slot, a.Message, b.Message, a.SuggestedAnswer, b.SuggestedAnswer)
+	return norm.CompareStrings(a.Code, b.Code, a.Slot, b.Slot, a.OperationID, b.OperationID, a.Path, b.Path, a.Message, b.Message, a.SuggestedAnswer, b.SuggestedAnswer, a.Remediation, b.Remediation)
 }
 
 // DecisionIssues projects decision evidence that needs confirmation into
@@ -199,10 +202,24 @@ func DecisionIssues(records []decision.Record) []Issue {
 func NormalizeQuestion(question Question) Question {
 	question.ID = strings.TrimSpace(question.ID)
 	question.Prompt = strings.TrimSpace(question.Prompt)
+	question.SuggestedAnswer = strings.TrimSpace(question.SuggestedAnswer)
 	question.DefaultAnswer = strings.TrimSpace(question.DefaultAnswer)
 	question.DefaultSource = norm.Token(question.DefaultSource)
 	question.Slots = normalizeSlots(question.Slots)
+	if question.DefaultAnswer == "" {
+		question.DefaultAnswer = question.SuggestedAnswer
+	}
+	if question.SuggestedAnswer == "" {
+		question.SuggestedAnswer = question.DefaultAnswer
+	}
+	if question.DefaultSource == "" && question.SuggestedAnswer != "" {
+		question.DefaultSource = DefaultSuggestedAnswerSource
+	}
+	if question.ForceAsk {
+		question.Forced = true
+	}
 	if question.Forced {
+		question.ForceAsk = true
 		question.Required = true
 	}
 	return question

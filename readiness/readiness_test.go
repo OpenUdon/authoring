@@ -118,3 +118,32 @@ func TestNormalizeQuestionsDeterministic(t *testing.T) {
 		t.Fatalf("summary = %#v, want forced/required/default counters", plan.Summary)
 	}
 }
+
+func TestQuestionCompatibilityNormalization(t *testing.T) {
+	question := NormalizeQuestion(Question{
+		ID:              " op ",
+		Prompt:          " Operation? ",
+		Slots:           []string{" step.operation ", "step.operation"},
+		SuggestedAnswer: " listWidgets ",
+		ForceAsk:        true,
+		Grouped:         true,
+	})
+	if question.DefaultAnswer != "listWidgets" || question.SuggestedAnswer != "listWidgets" {
+		t.Fatalf("question = %#v, want suggested/default answer compatibility", question)
+	}
+	if !question.Forced || !question.ForceAsk || !question.Required || !question.Grouped {
+		t.Fatalf("question = %#v, want force_ask/forced and grouped compatibility", question)
+	}
+	if len(question.Slots) != 1 || question.Slots[0] != "step.operation" {
+		t.Fatalf("slots = %#v, want normalized unique slot", question.Slots)
+	}
+	if _, _, ok := DefaultAnswer(question); ok {
+		t.Fatalf("forced compatibility question should not auto-select a default")
+	}
+
+	defaulted := NormalizeQuestion(Question{Prompt: "Operation?", DefaultAnswer: "getWidget", AllowDefault: true})
+	answer, source, ok := DefaultAnswer(defaulted)
+	if !ok || answer != "getWidget" || source != DefaultSuggestedAnswerSource || defaulted.SuggestedAnswer != "getWidget" {
+		t.Fatalf("defaulted = %#v answer=%q source=%q ok=%v, want normalized default selection", defaulted, answer, source, ok)
+	}
+}

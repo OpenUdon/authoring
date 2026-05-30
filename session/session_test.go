@@ -74,6 +74,34 @@ func TestNormalizeSessionVersionFallbackTrims(t *testing.T) {
 	}
 }
 
+func TestReadinessIssueCompatibilityFieldsAndDiagnostics(t *testing.T) {
+	state := Normalize(State{Readiness: []ReadinessIssue{{
+		Code:            " Missing Operation ",
+		Severity:        " Warning ",
+		Slot:            " steps.api.operation ",
+		OperationID:     " listWidgets ",
+		Path:            " workflows/intent.hcl ",
+		Message:         " choose an operation ",
+		SuggestedAnswer: " listWidgets ",
+		Remediation:     " choose a listed operationId ",
+		Diagnostics: []trust.DiagnosticRecord{{
+			Code:     "diag.code",
+			Severity: "warning",
+			Message:  "detail",
+		}},
+	}}})
+	if len(state.Readiness) != 1 {
+		t.Fatalf("readiness = %#v, want one issue", state.Readiness)
+	}
+	issue := state.Readiness[0]
+	if issue.Code != "missing_operation" || issue.OperationID != "listWidgets" || issue.Path != "workflows/intent.hcl" || issue.Remediation != "choose a listed operationId" {
+		t.Fatalf("issue = %#v, want normalized compatibility fields", issue)
+	}
+	if len(issue.Diagnostics) != 1 || issue.Diagnostics[0].Code != "diag.code" {
+		t.Fatalf("diagnostics = %#v, want normalized diagnostics", issue.Diagnostics)
+	}
+}
+
 func TestCanonicalJSONStable(t *testing.T) {
 	state := State{
 		ID:      "s1",

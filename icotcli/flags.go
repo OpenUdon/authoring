@@ -28,10 +28,14 @@ func AddFlags(fs *flag.FlagSet, flags *Flags) {
 	if fs == nil || flags == nil {
 		return
 	}
+	promptModeDefault := strings.TrimSpace(flags.PromptMode)
+	if promptModeDefault == "" {
+		promptModeDefault = "normal"
+	}
 	fs.BoolVar(&flags.Agent, "agent", false, "Run in noninteractive agent mode")
 	fs.BoolVar(&flags.JSON, "json", false, "Emit JSON")
 	fs.StringVar(&flags.Answers, "answers", "", "Replay answers/session JSON path")
-	fs.StringVar(&flags.PromptMode, "prompt-mode", firstNonEmpty(flags.PromptMode, "normal"), "Prompt mode: full, normal, or fast")
+	fs.StringVar(&flags.PromptMode, "prompt-mode", promptModeDefault, "Prompt mode: full, normal, or fast")
 	fs.BoolVar(&flags.NoLLM, "no-llm", flags.NoLLM, "Disable optional model assistance")
 	fs.BoolVar(&flags.NoTranscript, "no-transcript", false, "Do not write a transcript")
 	fs.StringVar(&flags.Provider, "provider", "", "Optional model provider label")
@@ -52,13 +56,4 @@ func PromptDefaultMode(mode string) (prompt.DefaultMode, error) {
 	default:
 		return prompt.DefaultsAsk, fmt.Errorf("--prompt-mode must be full, normal, or fast")
 	}
-}
-
-func firstNonEmpty(values ...string) string {
-	for _, value := range values {
-		if strings.TrimSpace(value) != "" {
-			return strings.TrimSpace(value)
-		}
-	}
-	return ""
 }

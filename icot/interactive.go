@@ -12,19 +12,20 @@ import (
 
 	"github.com/OpenUdon/authoring/lifecycle"
 	"github.com/OpenUdon/authoring/prompt"
+	readinesspkg "github.com/OpenUdon/authoring/readiness"
 	sessionpkg "github.com/OpenUdon/authoring/session"
+	"github.com/OpenUdon/authoring/transcript"
 )
 
 // PromptTurn records one local prompt and answer.
-type PromptTurn struct {
-	Label  string `json:"label"`
-	Answer string `json:"answer"`
-}
+type PromptTurn = sessionpkg.PromptTurn
 
 // Event records a structured interactive-loop event. The payload is owned by
-// the downstream product.
+// the downstream product. Kind is retained for compatibility; Type is the
+// durable transcript event name.
 type Event struct {
 	Kind string `json:"kind"`
+	Type string `json:"type,omitempty"`
 	Data any    `json:"data,omitempty"`
 }
 
@@ -96,7 +97,7 @@ func (session *PromptSession) Turns() []PromptTurn {
 func fromPromptTurns(turns []sessionpkg.PromptTurn) []PromptTurn {
 	out := make([]PromptTurn, 0, len(turns))
 	for _, turn := range turns {
-		out = append(out, PromptTurn{Label: turn.Label, Answer: turn.Answer})
+		out = append(out, turn)
 	}
 	return out
 }
@@ -136,7 +137,7 @@ func SavePromptTranscript(path, version string, turns []PromptTurn, events []Eve
 		Version: version,
 		TimeUTC: time.Now().UTC().Format(time.RFC3339),
 		Turns:   append([]PromptTurn(nil), turns...),
-		Events:  append([]Event(nil), events...),
+		Events:  NormalizeEvents(events),
 		Session: session,
 	}
 	data, err := json.MarshalIndent(transcript, "", "  ")
@@ -147,27 +148,73 @@ func SavePromptTranscript(path, version string, turns []PromptTurn, events []Eve
 	return lifecycle.AtomicWrite(path, data, 0o600)
 }
 
-// ReadinessIssue explains why an interactive draft needs more input before it
-// can be saved by the downstream adapter.
-type ReadinessIssue struct {
-	Severity        string `json:"severity"`
-	Code            string `json:"code,omitempty"`
-	Message         string `json:"message"`
-	OperationID     string `json:"operation_id,omitempty"`
-	Path            string `json:"path,omitempty"`
-	Slot            string `json:"slot,omitempty"`
-	SuggestedAnswer string `json:"suggested_answer,omitempty"`
-	Remediation     string `json:"remediation,omitempty"`
+// NormalizeEvents returns a compatibility-preserving copy of product payload
+// events with both Kind and Type populated when either is present.
+func NormalizeEvents(events []Event) []Event {
+	out := make([]Event, 0, len(events))
+	for _, event := range events {
+		event.Kind = strings.TrimSpace(event.Kind)
+		event.Type = strings.TrimSpace(event.Type)
+		if event.Type == "" {
+			event.Type = event.Kind
+		}
+		if event.Kind == "" {
+			event.Kind = event.Type
+		}
+		if event.Kind == "" && event.Type == "" && event.Data == nil {
+			continue
+		}
+		out = append(out, event)
+	}
+	return out
 }
 
-// InteractiveQuestion is one next-question decision in an interactive loop.
-type InteractiveQuestion struct {
-	Prompt          string   `json:"prompt"`
-	SuggestedAnswer string   `json:"suggested_answer,omitempty"`
-	Slots           []string `json:"slots,omitempty"`
-	Grouped         bool     `json:"grouped,omitempty"`
-	ForceAsk        bool     `json:"force_ask,omitempty"`
+// TranscriptEvent projects a product-payload event into the durable transcript
+// event contract without interpreting downstream payload fields.
+func TranscriptEvent(event Event) transcript.Event {
+	events := NormalizeEvents([]Event{event})
+	if len(events) == 0 {
+		return transcript.Event{}
+	}
+	event = events[0]
+	out := transcript.Event{
+		Type:   event.Type,
+		Fields: map[string]string{},
+	}
+	if event.Kind != "" && event.Kind != event.Type {
+		out.Fields["kind"] = event.Kind
+	}
+	if event.Data != nil {
+		if data, err := json.Marshal(event.Data); err == nil && len(data) > 0 {
+			out.Fields["data_json"] = string(data)
+		}
+	}
+	if len(out.Fields) == 0 {
+		out.Fields = nil
+	}
+	return out
 }
+
+// TranscriptEvents projects product-payload events into durable transcript
+// events.
+func TranscriptEvents(events []Event) []transcript.Event {
+	normalized := NormalizeEvents(events)
+	out := make([]transcript.Event, 0, len(normalized))
+	for _, event := range normalized {
+		projected := TranscriptEvent(event)
+		if projected.Type != "" {
+			out = append(out, projected)
+		}
+	}
+	return out
+}
+
+// ReadinessIssue explains why an interactive draft needs more input before it
+// can be saved by the downstream adapter.
+type ReadinessIssue = sessionpkg.ReadinessIssue
+
+// InteractiveQuestion is one next-question decision in an interactive loop.
+type InteractiveQuestion = readinesspkg.Question
 
 // DraftRequest is the model-facing input for an interactive draft.
 type DraftRequest[S, D any] struct {
@@ -272,7 +319,7 @@ func RunInteractive[S, D, A any](ctx context.Context, in io.Reader, out io.Write
 	}
 	var events []Event
 	record := func(kind string, data any) {
-		events = append(events, Event{Kind: kind, Data: data})
+		events = append(events, Event{Kind: kind, Type: kind, Data: data})
 	}
 	opening := strings.TrimSpace(hooks.Opening)
 	runDraft := func(session *S, docs []D, issues []ReadinessIssue, kind string) ([]ReadinessIssue, bool, error) {
@@ -310,8 +357,8 @@ func RunInteractive[S, D, A any](ctx context.Context, in io.Reader, out io.Write
 			}
 			if hooks.DraftEvents != nil {
 				for _, event := range hooks.DraftEvents(*session) {
-					if strings.TrimSpace(event.Kind) != "" {
-						record(event.Kind, event.Data)
+					for _, event := range NormalizeEvents([]Event{event}) {
+						record(event.Type, event.Data)
 					}
 				}
 			}
@@ -352,8 +399,8 @@ func RunInteractive[S, D, A any](ctx context.Context, in io.Reader, out io.Write
 		}
 		if hooks.OpeningEvents != nil {
 			for _, event := range hooks.OpeningEvents(session) {
-				if strings.TrimSpace(event.Kind) != "" {
-					record(event.Kind, event.Data)
+				for _, event := range NormalizeEvents([]Event{event}) {
+					record(event.Type, event.Data)
 				}
 			}
 		}
@@ -454,8 +501,8 @@ func RunInteractive[S, D, A any](ctx context.Context, in io.Reader, out io.Write
 				record("question_draft_result", map[string]any{"question": question, "readiness_issues": issues})
 				if hooks.DraftEvents != nil {
 					for _, event := range hooks.DraftEvents(session) {
-						if strings.TrimSpace(event.Kind) != "" {
-							record(event.Kind, event.Data)
+						for _, event := range NormalizeEvents([]Event{event}) {
+							record(event.Type, event.Data)
 						}
 					}
 				}
