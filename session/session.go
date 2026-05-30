@@ -5,6 +5,7 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/OpenUdon/authoring/decision"
 	"github.com/OpenUdon/authoring/trust"
 )
 
@@ -68,24 +69,10 @@ type ReadinessIssue struct {
 
 // DecisionEvidence records why a slot value was chosen or still requires
 // confirmation.
-type DecisionEvidence struct {
-	Stage                string                `json:"stage,omitempty"`
-	Slot                 string                `json:"slot,omitempty"`
-	Value                string                `json:"value,omitempty"`
-	Source               string                `json:"source,omitempty"`
-	Confidence           string                `json:"confidence,omitempty"`
-	Rationale            string                `json:"rationale,omitempty"`
-	Evidence             string                `json:"evidence,omitempty"`
-	Alternatives         []DecisionAlternative `json:"alternatives,omitempty"`
-	RequiresConfirmation bool                  `json:"requires_confirmation,omitempty"`
-}
+type DecisionEvidence = decision.Record
 
 // DecisionAlternative records a rejected or lower-confidence value.
-type DecisionAlternative struct {
-	Value     string `json:"value,omitempty"`
-	Rationale string `json:"rationale,omitempty"`
-	Source    string `json:"source,omitempty"`
-}
+type DecisionAlternative = decision.Alternative
 
 // Normalize returns a deterministic copy of state.
 func Normalize(state State) State {
@@ -182,42 +169,7 @@ func normalizeReadiness(issues []ReadinessIssue) []ReadinessIssue {
 }
 
 func normalizeDecisions(decisions []DecisionEvidence) []DecisionEvidence {
-	out := make([]DecisionEvidence, 0, len(decisions))
-	for _, decision := range decisions {
-		decision.Stage = normalizeToken(decision.Stage)
-		decision.Slot = trim(decision.Slot)
-		decision.Value = trim(decision.Value)
-		decision.Source = normalizeToken(decision.Source)
-		decision.Confidence = normalizeToken(decision.Confidence)
-		decision.Rationale = trim(decision.Rationale)
-		decision.Evidence = trim(decision.Evidence)
-		decision.Alternatives = normalizeAlternatives(decision.Alternatives)
-		if decision.Stage == "" && decision.Slot == "" && decision.Value == "" {
-			continue
-		}
-		out = append(out, decision)
-	}
-	slices.SortStableFunc(out, func(a, b DecisionEvidence) int {
-		return compareStrings(a.Stage, b.Stage, a.Slot, b.Slot, a.Value, b.Value, a.Source, b.Source)
-	})
-	return out
-}
-
-func normalizeAlternatives(alternatives []DecisionAlternative) []DecisionAlternative {
-	out := make([]DecisionAlternative, 0, len(alternatives))
-	for _, alternative := range alternatives {
-		alternative.Value = trim(alternative.Value)
-		alternative.Rationale = trim(alternative.Rationale)
-		alternative.Source = normalizeToken(alternative.Source)
-		if alternative.Value == "" {
-			continue
-		}
-		out = append(out, alternative)
-	}
-	slices.SortStableFunc(out, func(a, b DecisionAlternative) int {
-		return compareStrings(a.Value, b.Value, a.Source, b.Source, a.Rationale, b.Rationale)
-	})
-	return out
+	return decision.NormalizeAll(decisions)
 }
 
 func normalizeArtifacts(artifacts []trust.ArtifactRecord) []trust.ArtifactRecord {

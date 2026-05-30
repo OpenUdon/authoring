@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"testing"
 
+	"github.com/OpenUdon/authoring/decision"
 	"github.com/OpenUdon/authoring/session"
 	"github.com/OpenUdon/authoring/trust"
 )
@@ -125,5 +126,26 @@ func TestProductShapedTranscriptMapsWithoutProductImports(t *testing.T) {
 	}
 	if mapped.Artifacts[0].Path != "project.uws.yaml" {
 		t.Fatalf("mapped artifact = %#v", mapped.Artifacts[0])
+	}
+}
+
+func TestDecisionEvents(t *testing.T) {
+	events := DecisionEvents([]decision.Record{{
+		Stage:      "Operation Selection",
+		Slot:       "resource.operation",
+		Value:      "create",
+		Source:     "model",
+		Confidence: "low",
+		Rationale:  "chosen from goal",
+	}})
+	if len(events) != 1 {
+		t.Fatalf("DecisionEvents returned %d events, want 1", len(events))
+	}
+	event := events[0]
+	if event.Type != "decision" || event.Stage != "operation_selection" || event.Fields["behavior"] != decision.BehaviorLowConfidence {
+		t.Fatalf("decision event = %#v", event)
+	}
+	if event.Message != "chosen from goal" {
+		t.Fatalf("decision event message = %q", event.Message)
 	}
 }

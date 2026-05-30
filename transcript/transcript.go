@@ -5,6 +5,7 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/OpenUdon/authoring/decision"
 	"github.com/OpenUdon/authoring/session"
 	"github.com/OpenUdon/authoring/trust"
 )
@@ -102,6 +103,27 @@ func normalizeTurns(turns []Turn) []Turn {
 		return compareStrings(a.TimeUTC, b.TimeUTC, a.ID, b.ID, a.Role, b.Role, a.Label, b.Label)
 	})
 	return out
+}
+
+// DecisionEvent returns a generic transcript event for one decision record.
+func DecisionEvent(record decision.Record) Event {
+	record = decision.Normalize(record)
+	return Event{
+		Type:    "decision",
+		Stage:   record.Stage,
+		Message: record.Rationale,
+		Fields:  decision.EventFields(record),
+	}
+}
+
+// DecisionEvents returns generic transcript events for decision records.
+func DecisionEvents(records []decision.Record) []Event {
+	records = decision.NormalizeAll(records)
+	events := make([]Event, 0, len(records))
+	for _, record := range records {
+		events = append(events, DecisionEvent(record))
+	}
+	return events
 }
 
 func normalizeEvents(events []Event) []Event {
