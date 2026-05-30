@@ -36,6 +36,7 @@ type Result struct {
 	Diagnostics    []trust.DiagnosticRecord `json:"diagnostics,omitempty"`
 	Artifacts      []trust.ArtifactRecord   `json:"artifacts,omitempty"`
 	Digests        []trust.DigestRecord     `json:"digests,omitempty"`
+	Report         *ReportMetadata          `json:"report,omitempty"`
 	Session        *SessionMetadata         `json:"session,omitempty"`
 	Transcript     *TranscriptMetadata      `json:"transcript,omitempty"`
 	Metadata       map[string]string        `json:"metadata,omitempty"`
@@ -93,6 +94,7 @@ func Normalize(result Result) Result {
 	result.Diagnostics = trust.NormalizeDiagnostics(result.Diagnostics)
 	result.Artifacts = normalizeArtifacts(result.Artifacts)
 	result.Digests = normalizeDigests(result.Digests)
+	result.Report = NormalizeReportMetadata(result.Report)
 	result.Session = NormalizeSessionMetadata(result.Session)
 	result.Transcript = NormalizeTranscriptMetadata(result.Transcript)
 	result.Metadata = normalizeMetadata(result.Metadata)
