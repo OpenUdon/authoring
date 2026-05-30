@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/OpenUdon/authoring/prompt"
+	readinesspkg "github.com/OpenUdon/authoring/readiness"
 	"github.com/OpenUdon/authoring/session"
 	"github.com/OpenUdon/authoring/transcript"
 )
@@ -44,16 +45,7 @@ type Options[S, D, A any] struct {
 }
 
 // Question is a product-neutral follow-up question plan.
-type Question struct {
-	ID            string   `json:"id,omitempty"`
-	Prompt        string   `json:"prompt,omitempty"`
-	Slots         []string `json:"slots,omitempty"`
-	Required      bool     `json:"required,omitempty"`
-	Forced        bool     `json:"forced,omitempty"`
-	AllowDefault  bool     `json:"allow_default,omitempty"`
-	DefaultAnswer string   `json:"default_answer,omitempty"`
-	DefaultSource string   `json:"default_source,omitempty"`
-}
+type Question = readinesspkg.Question
 
 // Result is the generic loop outcome.
 type Result[S, A any] struct {
@@ -230,7 +222,7 @@ func ready[S any](check func(S, []session.ReadinessIssue) bool, state S, issues 
 	if check != nil {
 		return check(state, issues)
 	}
-	return len(issues) == 0
+	return readinesspkg.Ready(issues)
 }
 
 func planQuestion[S, D any](plan func(S, []D, []session.ReadinessIssue) Question, state S, docs []D, issues []session.ReadinessIssue) Question {
@@ -241,19 +233,7 @@ func planQuestion[S, D any](plan func(S, []D, []session.ReadinessIssue) Question
 }
 
 func normalizeQuestion(question Question) Question {
-	question.ID = strings.TrimSpace(question.ID)
-	question.Prompt = strings.TrimSpace(question.Prompt)
-	question.DefaultAnswer = strings.TrimSpace(question.DefaultAnswer)
-	question.DefaultSource = strings.TrimSpace(question.DefaultSource)
-	var slots []string
-	for _, slot := range question.Slots {
-		slot = strings.TrimSpace(slot)
-		if slot != "" {
-			slots = append(slots, slot)
-		}
-	}
-	question.Slots = slots
-	return question
+	return readinesspkg.NormalizeQuestion(question)
 }
 
 func normalize[S any](fn func(*S), state *S) {
