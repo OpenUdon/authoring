@@ -102,7 +102,13 @@ OpenUdon exposes its workflow-authoring loop from the downstream checkout:
 
 ```bash
 (cd ../openudon && go run ./cmd/icot --example examples/<name>)
+(cd ../openudon && go run ./cmd/openudon build --example examples/<name>)
 ```
+
+The iCoT command writes the human/project brief and structured intent. The
+downstream `openudon build` command then deterministically regenerates the
+public workflow artifacts, review evidence, and quality reports from
+`workflows/intent.hcl`.
 
 Common downstream options:
 
@@ -124,14 +130,20 @@ Typical downstream output files and directories:
 ```text
 project.md
 workflows/intent.hcl
+workflows/workflow.hcl
+workflows/workflow.uws.yaml
 openapi/
 workflows/
 expected/
+expected/plan.json
+expected/review.md
+expected/review-handoff.json
+expected/quality.json
 .icot/
 ```
 
-OpenUdon also owns related downstream subcommands such as `reconcile`, `lint`,
-`repair`, `scorecard`, `variants`, `replay-eval`, `authoring-eval`, and
+OpenUdon also owns related downstream subcommands such as `build`, `reconcile`,
+`lint`, `repair`, `scorecard`, `variants`, `replay-eval`, `authoring-eval`, and
 `report verify`.
 
 ### Ramen iCoT
