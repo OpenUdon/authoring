@@ -21,6 +21,8 @@ model-provider clients, live execution, governance, state, or reconciliation.
 - `prompt`: local prompting, default modes, replay scripts, and prompt
   transcripts.
 - `lifecycle`: draft envelopes, atomic writes, autosave, and artifact helpers.
+- `operationlifecycle`: conservative API operation lifecycle sibling
+  expansion over prompt-safe context.
 - `structured`: provider-neutral structured JSON completion and legacy JSON
   fallback.
 - `icot`: generic progressive and interactive iCoT loops, lifecycle hooks, and
@@ -86,6 +88,7 @@ The two iCoT adapters share generic Authoring context and loop mechanics:
 - readiness issue and interactive question shapes
 - decision evidence normalization and confirmation policy
 - prompt-safe source, operation, schema, and credential-binding context records
+- conservative lifecycle sibling expansion for selected API operations
 - agent result, diagnostic, artifact, metadata, and scorecard report shapes
 - common CLI flags for prompt mode, no-LLM, model labels, answers, reports, and
   transcripts

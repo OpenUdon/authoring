@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/OpenUdon/authoring/lifecycle"
+	"github.com/OpenUdon/authoring/operationlifecycle"
 	"github.com/OpenUdon/authoring/prompt"
 	"github.com/OpenUdon/authoring/promptcontext"
 	"github.com/OpenUdon/authoring/report"
@@ -34,6 +35,9 @@ func TestDurableContractVersions(t *testing.T) {
 func TestDurableContractJSONTags(t *testing.T) {
 	types := []reflect.Type{
 		reflect.TypeOf(lifecycle.Draft[map[string]string]{}),
+		reflect.TypeOf(operationlifecycle.Expansion{}),
+		reflect.TypeOf(operationlifecycle.RoleCandidate{}),
+		reflect.TypeOf(operationlifecycle.Diagnostic{}),
 		reflect.TypeOf(prompt.PromptTranscript{}),
 		reflect.TypeOf(prompt.ReplayScript{}),
 		reflect.TypeOf(promptcontext.Context{}),

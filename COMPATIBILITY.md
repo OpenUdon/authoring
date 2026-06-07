@@ -12,6 +12,7 @@ The public package groups are behavior-based:
 - `transcript`: durable transcript turns, events, and model provenance.
 - `prompt`: local prompt modes, replay scripts, and prompt transcripts.
 - `lifecycle`: draft persistence, atomic writes, and artifact helpers.
+- `operationlifecycle`: prompt-safe lifecycle operation sibling expansion.
 - `structured`: provider-neutral structured JSON completion helpers.
 - `icot`: progressive loop and bound-runtime interfaces.
 - `readiness`: readiness summaries and question planning.
