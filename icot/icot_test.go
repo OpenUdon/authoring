@@ -154,6 +154,33 @@ func TestRunForcedQuestionIgnoresDefault(t *testing.T) {
 	}
 }
 
+func TestRunCancelStopsRoundCollectionImmediately(t *testing.T) {
+	applied := false
+	result, err := Run[frontierState, string, string](context.Background(), strings.NewReader("cancel\nsecond-answer\n"), nil, Options[frontierState, string, string]{
+		Session:     frontierState{Settled: map[string]string{}},
+		DefaultMode: prompt.DefaultsAsk,
+		CheckReadiness: func(frontierState, []string) []session.ReadinessIssue {
+			return []session.ReadinessIssue{{Code: "decisions.open", Severity: "blocking"}}
+		},
+		PlanFrontier: func(frontierState, []string, []session.ReadinessIssue) []Question {
+			return []Question{
+				{ID: "first", Prompt: "First", Required: true, Forced: true},
+				{ID: "second", Prompt: "Second", Required: true, Forced: true},
+			}
+		},
+		ApplyRound: func(*frontierState, []RoundAnswer, []string) error {
+			applied = true
+			return nil
+		},
+	})
+	if !errors.Is(err, ErrCanceled) {
+		t.Fatalf("Run error = %v, want ErrCanceled", err)
+	}
+	if applied || len(result.Answers) != 1 || result.Answers[0].QuestionID != "first" || len(result.Turns) != 1 {
+		t.Fatalf("cancel result = %#v, applied=%t", result, applied)
+	}
+}
+
 func TestRunStopsAfterThreeConsecutiveNoProgressRounds(t *testing.T) {
 	var answers int
 	_, err := Run[fakeState, string, string](context.Background(), nil, nil, Options[fakeState, string, string]{

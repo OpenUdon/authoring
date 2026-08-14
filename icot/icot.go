@@ -336,6 +336,9 @@ func collectRoundAnswers(prompts *prompt.Session, questions []Question) ([]Round
 			Value:      strings.TrimSpace(value),
 			Source:     source,
 		})
+		if strings.EqualFold(strings.TrimSpace(value), "cancel") {
+			return answers, nil
+		}
 	}
 	return answers, nil
 }
