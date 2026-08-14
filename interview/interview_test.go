@@ -1,6 +1,7 @@
 package interview
 
 import (
+	"encoding/json"
 	"errors"
 	"reflect"
 	"strings"
@@ -104,6 +105,27 @@ func TestUnifiedEvidenceReferencesAreValidated(t *testing.T) {
 	state.Evidence = append(state.Evidence, Evidence{ID: "observed", Kind: EvidenceAssumption, Summary: "duplicate"})
 	if err := Validate(state); err == nil {
 		t.Fatal("Validate accepted duplicate evidence ID")
+	}
+}
+
+func TestUnifiedEvidenceAttributesAreNormalizedAndDurable(t *testing.T) {
+	state := Normalize(State{Evidence: []Evidence{{
+		ID: " safety ", Kind: EvidenceOpenDecision, Summary: " confirm send ",
+		Attributes: map[string]string{" confidence ": " review ", "empty": "  "},
+	}}})
+	if got := state.Evidence[0].Attributes; len(got) != 1 || got["confidence"] != "review" {
+		t.Fatalf("normalized attributes = %#v", got)
+	}
+	data, err := CanonicalJSON(state)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var roundTrip State
+	if err := json.Unmarshal(data, &roundTrip); err != nil {
+		t.Fatal(err)
+	}
+	if got := roundTrip.Evidence[0].Attributes["confidence"]; got != "review" {
+		t.Fatalf("round-trip confidence = %q", got)
 	}
 }
 

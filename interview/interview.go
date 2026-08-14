@@ -64,6 +64,10 @@ type Evidence struct {
 	Value      string   `json:"value,omitempty"`
 	Source     string   `json:"source,omitempty"`
 	References []string `json:"references,omitempty"`
+	// Attributes holds concise machine-readable qualifiers needed to apply
+	// product-specific safety and readiness policy after resuming. Values are
+	// public evidence metadata, never hidden model reasoning.
+	Attributes map[string]string `json:"attributes,omitempty"`
 }
 
 // Deferral records why a technical leaf is intentionally incomplete and what
@@ -459,6 +463,7 @@ func normalizeEvidence(records []Evidence) []Evidence {
 		record.Value = strings.TrimSpace(record.Value)
 		record.Source = strings.TrimSpace(record.Source)
 		record.References = normalizedStrings(record.References)
+		record.Attributes = normalizeMetadata(record.Attributes)
 		out = append(out, record)
 	}
 	slices.SortStableFunc(out, func(a, b Evidence) int { return strings.Compare(a.ID, b.ID) })
