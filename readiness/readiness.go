@@ -19,8 +19,12 @@ const (
 	DecisionLowConfidenceIssueCode = "decision.low_confidence"
 	DecisionReviewIssueCode        = "decision.review_required"
 
-	DefaultAnswerSource          = "default"
-	DefaultSuggestedAnswerSource = "suggested_answer"
+	DefaultAnswerSource         = "recommendation"
+	DefaultRecommendationSource = "recommendation"
+
+	// DefaultSuggestedAnswerSource is retained as a source-level compatibility
+	// alias. New durable records use DefaultRecommendationSource.
+	DefaultSuggestedAnswerSource = DefaultRecommendationSource
 )
 
 // Issue is the shared readiness issue record used by sessions and loops.
@@ -50,17 +54,25 @@ type Summary struct {
 
 // Question is a product-neutral follow-up question plan.
 type Question struct {
-	ID              string   `json:"id,omitempty"`
-	Prompt          string   `json:"prompt,omitempty"`
-	Slots           []string `json:"slots,omitempty"`
-	Required        bool     `json:"required,omitempty"`
-	Forced          bool     `json:"forced,omitempty"`
-	ForceAsk        bool     `json:"force_ask,omitempty"`
-	AllowDefault    bool     `json:"allow_default,omitempty"`
-	DefaultAnswer   string   `json:"default_answer,omitempty"`
-	SuggestedAnswer string   `json:"suggested_answer,omitempty"`
-	DefaultSource   string   `json:"default_source,omitempty"`
-	Grouped         bool     `json:"grouped,omitempty"`
+	ID             string   `json:"id,omitempty"`
+	Prompt         string   `json:"prompt,omitempty"`
+	Slots          []string `json:"slots,omitempty"`
+	Required       bool     `json:"required,omitempty"`
+	Forced         bool     `json:"forced,omitempty"`
+	Recommendation string   `json:"recommendation,omitempty"`
+	Priority       int      `json:"priority,omitempty"`
+	Rationale      string   `json:"rationale,omitempty"`
+	EvidenceRefs   []string `json:"evidence_refs,omitempty"`
+
+	// Deprecated source-compatibility fields are ignored by the durable v2
+	// JSON shape. NormalizeQuestion projects them into the fields above so
+	// existing downstream source can migrate without a second loop engine.
+	ForceAsk        bool   `json:"-"`
+	AllowDefault    bool   `json:"-"`
+	DefaultAnswer   string `json:"-"`
+	SuggestedAnswer string `json:"-"`
+	DefaultSource   string `json:"-"`
+	Grouped         bool   `json:"-"`
 }
 
 // Plan is a deterministic set of planned questions.
@@ -202,26 +214,23 @@ func DecisionIssues(records []decision.Record) []Issue {
 func NormalizeQuestion(question Question) Question {
 	question.ID = strings.TrimSpace(question.ID)
 	question.Prompt = strings.TrimSpace(question.Prompt)
-	question.SuggestedAnswer = strings.TrimSpace(question.SuggestedAnswer)
-	question.DefaultAnswer = strings.TrimSpace(question.DefaultAnswer)
-	question.DefaultSource = norm.Token(question.DefaultSource)
 	question.Slots = normalizeSlots(question.Slots)
-	if question.DefaultAnswer == "" {
-		question.DefaultAnswer = question.SuggestedAnswer
-	}
-	if question.SuggestedAnswer == "" {
-		question.SuggestedAnswer = question.DefaultAnswer
-	}
-	if question.DefaultSource == "" && question.SuggestedAnswer != "" {
-		question.DefaultSource = DefaultSuggestedAnswerSource
-	}
+	question.Recommendation = strings.TrimSpace(norm.FirstNonEmpty(question.Recommendation, question.DefaultAnswer, question.SuggestedAnswer))
+	question.Rationale = strings.TrimSpace(question.Rationale)
+	question.EvidenceRefs = normalizeSlots(question.EvidenceRefs)
 	if question.ForceAsk {
 		question.Forced = true
 	}
 	if question.Forced {
-		question.ForceAsk = true
 		question.Required = true
 	}
+	// Keep source readers working while excluding the compatibility fields from
+	// the durable wire contract.
+	question.ForceAsk = question.Forced
+	question.AllowDefault = !question.Forced && question.Recommendation != ""
+	question.DefaultAnswer = question.Recommendation
+	question.SuggestedAnswer = question.Recommendation
+	question.DefaultSource = DefaultRecommendationSource
 	return question
 }
 
@@ -270,13 +279,12 @@ func SuggestedQuestion(issue Issue, prompt string) Question {
 		issue = issues[0]
 	}
 	return NormalizeQuestion(Question{
-		ID:            issueID(issue),
-		Prompt:        prompt,
-		Slots:         issueSlots(issue),
-		Required:      IsBlocking(issue),
-		AllowDefault:  issue.SuggestedAnswer != "",
-		DefaultAnswer: issue.SuggestedAnswer,
-		DefaultSource: DefaultSuggestedAnswerSource,
+		ID:             issueID(issue),
+		Prompt:         prompt,
+		Slots:          issueSlots(issue),
+		Required:       IsBlocking(issue),
+		Recommendation: issue.SuggestedAnswer,
+		Rationale:      issue.Message,
 	})
 }
 
@@ -286,33 +294,32 @@ func ForcedQuestion(issue Issue, prompt string) Question {
 	question := SuggestedQuestion(issue, prompt)
 	question.Forced = true
 	question.Required = true
-	question.AllowDefault = false
 	return NormalizeQuestion(question)
 }
 
 // DefaultAnswer returns an auto-usable default answer for question.
 func DefaultAnswer(question Question) (string, string, bool) {
 	question = NormalizeQuestion(question)
-	if question.Forced || !question.AllowDefault || question.DefaultAnswer == "" {
+	if question.Forced || question.Recommendation == "" {
 		return "", "", false
 	}
-	return question.DefaultAnswer, norm.FirstNonEmpty(question.DefaultSource, DefaultAnswerSource), true
+	return question.Recommendation, DefaultRecommendationSource, true
 }
 
 // CompareQuestion orders question plans deterministically.
 func CompareQuestion(a, b Question) int {
 	a = NormalizeQuestion(a)
 	b = NormalizeQuestion(b)
+	if a.Priority != b.Priority {
+		return b.Priority - a.Priority
+	}
 	if diff := boolRank(b.Forced) - boolRank(a.Forced); diff != 0 {
 		return diff
 	}
 	if diff := boolRank(b.Required) - boolRank(a.Required); diff != 0 {
 		return diff
 	}
-	if diff := boolRank(b.AllowDefault) - boolRank(a.AllowDefault); diff != 0 {
-		return diff
-	}
-	return norm.CompareStrings(a.ID, b.ID, strings.Join(a.Slots, "\x00"), strings.Join(b.Slots, "\x00"), a.Prompt, b.Prompt)
+	return norm.CompareStrings(a.ID, b.ID, strings.Join(a.Slots, "\x00"), strings.Join(b.Slots, "\x00"), a.Prompt, b.Prompt, a.Recommendation, b.Recommendation)
 }
 
 func decisionIssue(record decision.Record) Issue {

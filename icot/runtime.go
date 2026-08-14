@@ -17,6 +17,16 @@ import (
 type Runtime[S, D, A any] interface {
 	Draft(context.Context, S, []D, []session.ReadinessIssue, int) (S, error)
 	Readiness(S, []D) []session.ReadinessIssue
+	PlanFrontier(S, []D, []session.ReadinessIssue) []Question
+	ApplyRound(*S, []RoundAnswer, []D) error
+	WriteArtifacts(context.Context, *S, []D, *[]transcript.Event) (A, error)
+}
+
+// LegacyRuntime is the pre-frontier source compatibility shape. BindRuntime
+// adapts it to one-question rounds; new runtimes should implement Runtime.
+type LegacyRuntime[S, D, A any] interface {
+	Draft(context.Context, S, []D, []session.ReadinessIssue, int) (S, error)
+	Readiness(S, []D) []session.ReadinessIssue
 	PlanQuestion(S, []D, []session.ReadinessIssue) Question
 	ApplyAnswer(*S, Question, string, []D) error
 	WriteArtifacts(context.Context, *S, []D, *[]transcript.Event) (A, error)
@@ -56,29 +66,43 @@ type DraftRepairRuntime[S, D any] interface {
 type RuntimeConfig[S, D any] struct {
 	Session     S
 	Documents   []D
-	MaxAttempts int
 	DefaultMode prompt.DefaultMode
 	Autosave    func(S) error
 	AfterDraft  func(S) error
+
+	// Deprecated: retained for source compatibility and ignored.
+	MaxAttempts     int
+	NoProgressLimit int
 }
 
 // BindRuntime converts a bound runtime into loop options.
-func BindRuntime[S, D, A any](runtime Runtime[S, D, A], config RuntimeConfig[S, D]) (Options[S, D, A], error) {
+func BindRuntime[S, D, A any](runtime any, config RuntimeConfig[S, D]) (Options[S, D, A], error) {
 	if runtime == nil {
 		return Options[S, D, A]{}, fmt.Errorf("icot runtime is required")
 	}
 	opts := Options[S, D, A]{
-		Session:        config.Session,
-		Documents:      append([]D(nil), config.Documents...),
-		MaxAttempts:    config.MaxAttempts,
-		DefaultMode:    config.DefaultMode,
-		Draft:          runtime.Draft,
-		CheckReadiness: runtime.Readiness,
-		PlanQuestion:   runtime.PlanQuestion,
-		ApplyAnswer:    runtime.ApplyAnswer,
-		Autosave:       config.Autosave,
-		AfterDraft:     config.AfterDraft,
-		FinalConfirm:   runtime.WriteArtifacts,
+		Session:     config.Session,
+		Documents:   append([]D(nil), config.Documents...),
+		MaxAttempts: config.MaxAttempts,
+		DefaultMode: config.DefaultMode,
+		Autosave:    config.Autosave,
+		AfterDraft:  config.AfterDraft,
+	}
+	switch bound := runtime.(type) {
+	case Runtime[S, D, A]:
+		opts.Draft = bound.Draft
+		opts.CheckReadiness = bound.Readiness
+		opts.PlanFrontier = bound.PlanFrontier
+		opts.ApplyRound = bound.ApplyRound
+		opts.FinalConfirm = bound.WriteArtifacts
+	case LegacyRuntime[S, D, A]:
+		opts.Draft = bound.Draft
+		opts.CheckReadiness = bound.Readiness
+		opts.PlanQuestion = bound.PlanQuestion
+		opts.ApplyAnswer = bound.ApplyAnswer
+		opts.FinalConfirm = bound.WriteArtifacts
+	default:
+		return Options[S, D, A]{}, fmt.Errorf("icot runtime does not implement the frontier runtime contract")
 	}
 	if normalizer, ok := runtime.(NormalizingRuntime[S]); ok {
 		opts.Normalize = normalizer.Normalize
@@ -96,7 +120,7 @@ func BindRuntime[S, D, A any](runtime Runtime[S, D, A], config RuntimeConfig[S, 
 }
 
 // RunRuntime runs the generic loop through a bound runtime.
-func RunRuntime[S, D, A any](ctx context.Context, in io.Reader, out io.Writer, runtime Runtime[S, D, A], config RuntimeConfig[S, D]) (Result[S, A], error) {
+func RunRuntime[S, D, A any](ctx context.Context, in io.Reader, out io.Writer, runtime any, config RuntimeConfig[S, D]) (Result[S, A], error) {
 	opts, err := BindRuntime[S, D, A](runtime, config)
 	if err != nil {
 		return Result[S, A]{}, err

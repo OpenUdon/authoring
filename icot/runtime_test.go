@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/OpenUdon/authoring/prompt"
 	"github.com/OpenUdon/authoring/session"
 	"github.com/OpenUdon/authoring/transcript"
 )
@@ -115,7 +116,7 @@ func TestRunRuntimePropagatesHookErrors(t *testing.T) {
 }
 
 func TestRunRuntimeDraftErrorFallsBackToQuestion(t *testing.T) {
-	result, err := RunRuntime[fakeState, string, string](context.Background(), nil, nil, &boundRuntime{draftErr: errors.New("draft failed")}, RuntimeConfig[fakeState, string]{MaxAttempts: 2})
+	result, err := RunRuntime[fakeState, string, string](context.Background(), nil, nil, &boundRuntime{draftErr: errors.New("draft failed")}, RuntimeConfig[fakeState, string]{DefaultMode: prompt.DefaultsSilent})
 	if err != nil {
 		t.Fatalf("RunRuntime returned error: %v", err)
 	}

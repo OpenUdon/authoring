@@ -5,6 +5,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/OpenUdon/authoring/interview"
 	"github.com/OpenUdon/authoring/lifecycle"
 	"github.com/OpenUdon/authoring/operationlifecycle"
 	"github.com/OpenUdon/authoring/prompt"
@@ -16,6 +17,7 @@ import (
 
 func TestDurableContractVersions(t *testing.T) {
 	versions := map[string]string{
+		"interview.Version":        interview.Version,
 		"lifecycle.DraftVersion":   lifecycle.DraftVersion,
 		"prompt.TranscriptVersion": prompt.TranscriptVersion,
 		"promptcontext.Version":    promptcontext.Version,
@@ -34,6 +36,11 @@ func TestDurableContractVersions(t *testing.T) {
 
 func TestDurableContractJSONTags(t *testing.T) {
 	types := []reflect.Type{
+		reflect.TypeOf(interview.State{}),
+		reflect.TypeOf(interview.Node{}),
+		reflect.TypeOf(interview.Evidence{}),
+		reflect.TypeOf(interview.Deferral{}),
+		reflect.TypeOf(interview.Answer{}),
 		reflect.TypeOf(lifecycle.Draft[map[string]string]{}),
 		reflect.TypeOf(operationlifecycle.Expansion{}),
 		reflect.TypeOf(operationlifecycle.RoleCandidate{}),

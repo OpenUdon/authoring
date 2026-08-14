@@ -1,6 +1,8 @@
 package readiness
 
 import (
+	"encoding/json"
+	"strings"
 	"testing"
 
 	"github.com/OpenUdon/authoring/decision"
@@ -145,5 +147,31 @@ func TestQuestionCompatibilityNormalization(t *testing.T) {
 	answer, source, ok := DefaultAnswer(defaulted)
 	if !ok || answer != "getWidget" || source != DefaultSuggestedAnswerSource || defaulted.SuggestedAnswer != "getWidget" {
 		t.Fatalf("defaulted = %#v answer=%q source=%q ok=%v, want normalized default selection", defaulted, answer, source, ok)
+	}
+}
+
+func TestQuestionDurableShapeUsesOneForcedFlagAndRecommendation(t *testing.T) {
+	question := NormalizeQuestion(Question{
+		ID: "operation", Prompt: "Choose operation", Forced: true,
+		Recommendation: "getPet", Priority: 10, Rationale: "matches the requested read",
+		EvidenceRefs: []string{"source.digest", "source.digest"},
+	})
+	data, err := json.Marshal(question)
+	if err != nil {
+		t.Fatal(err)
+	}
+	wire := string(data)
+	for _, removed := range []string{"force_ask", "allow_default", "default_answer", "suggested_answer", "default_source", "grouped"} {
+		if strings.Contains(wire, removed) {
+			t.Fatalf("wire includes removed compatibility field %q: %s", removed, wire)
+		}
+	}
+	for _, field := range []string{"\"forced\"", "\"recommendation\"", "\"priority\"", "\"rationale\"", "\"evidence_refs\""} {
+		if !strings.Contains(wire, field) {
+			t.Fatalf("wire missing %s: %s", field, wire)
+		}
+	}
+	if len(question.EvidenceRefs) != 1 {
+		t.Fatalf("evidence refs = %#v", question.EvidenceRefs)
 	}
 }

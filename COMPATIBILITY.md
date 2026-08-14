@@ -15,6 +15,7 @@ The public package groups are behavior-based:
 - `operationlifecycle`: prompt-safe lifecycle operation sibling expansion.
 - `structured`: provider-neutral structured JSON completion helpers.
 - `icot`: progressive loop and bound-runtime interfaces.
+- `interview`: dependency-aware interview graph and unified evidence records.
 - `readiness`: readiness summaries and question planning.
 - `decision`: decision evidence and confidence policy.
 - `report`: agent result, retention metadata, and scorecard records.
@@ -24,8 +25,17 @@ The public package groups are behavior-based:
 ## Versioned Records
 
 Durable JSON records use `authoring.*.v1` version constants. The current
-versioned records are sessions, transcripts, prompt transcripts, draft
-envelopes, prompt contexts, agent results, report metadata, and scorecards.
+versioned records are interviews, sessions, transcripts, prompt transcripts,
+draft envelopes, prompt contexts, agent results, report metadata, and
+scorecards.
+
+The frontier migration intentionally replaces the readiness question wire
+aliases (`force_ask`, `allow_default`, `default_answer`, `suggested_answer`,
+`default_source`, and `grouped`) with `forced`, `recommendation`, `priority`,
+`rationale`, and `evidence_refs`. Deprecated Go-only fields remain temporarily
+for source compatibility with the unchanged Ramen adapter, but they are not
+serialized. Product v1 session/report decoders must not be reused for a v2
+product migration.
 
 Within pre-1.0, version constants and JSON tags should not change silently.
 If a JSON shape changes incompatibly, update the version constant, document the

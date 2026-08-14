@@ -4,9 +4,9 @@ Authoring is the shared Go module for product-neutral authoring orchestration
 used by OpenUdon and Ramen.
 
 It owns generic sessions, transcripts, prompt/replay helpers, draft lifecycle
-persistence, structured JSON fallback, readiness/question planning, progressive
-iCoT loops, decision evidence, report metadata, scorecard records, and
-prompt-safe context shapes.
+persistence, structured JSON fallback, dependency-aware interview graphs,
+frontier-round iCoT loops, readiness/question planning, decision evidence,
+report metadata, scorecard records, and prompt-safe context shapes.
 
 It does not own OpenUdon workflow package semantics, Ramen desired-state
 semantics, UWS document semantics, API-source parsing, credential resolution,
@@ -27,6 +27,8 @@ model-provider clients, live execution, governance, state, or reconciliation.
   fallback.
 - `icot`: generic progressive and interactive iCoT loops, lifecycle hooks, and
   bound-runtime interfaces.
+- `interview`: `authoring.interview.v1` dependency graphs, unified evidence,
+  answers, deferrals, validation, status transitions, and ready frontiers.
 - `icotcli`: shared iCoT CLI flag plumbing and prompt/model label helpers.
 - `readiness`: readiness summaries, blocking/warning sorting, and question
   planning.
@@ -84,8 +86,11 @@ intentionally different.
 The two iCoT adapters share generic Authoring context and loop mechanics:
 
 - prompt sessions, default modes, answer replay, and transcript records
-- progressive loop lifecycle, autosave hooks, and final confirmation flow
-- readiness issue and interactive question shapes
+- dependency-ready frontier rounds, one normalization/autosave after applying
+  each complete answer set, three-round no-progress diagnosis, and final
+  confirmation flow
+- readiness issue and interactive question shapes with one forced flag, one
+  recommendation, priority, concise rationale, and evidence references
 - decision evidence normalization and confirmation policy
 - prompt-safe source, operation, schema, and credential-binding context records
 - conservative lifecycle sibling expansion for selected API operations
