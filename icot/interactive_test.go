@@ -82,6 +82,7 @@ func TestRunInteractiveOpeningDraftAutosaveTranscript(t *testing.T) {
 		FinalConfirm: func(_ *PromptSession, state *interactiveState, _ []string, _ *[]Event) (string, error) {
 			return state.Goal + ":" + state.Op, nil
 		},
+		FinalResultSummary: func(artifact string) any { return artifact },
 		SaveTranscript: func(turns []PromptTurn, events []Event, _ string) error {
 			transcriptTurns = turns
 			transcriptEvents = events
@@ -111,6 +112,21 @@ func TestRunInteractiveOpeningDraftAutosaveTranscript(t *testing.T) {
 	projected := TranscriptEvents(transcriptEvents)
 	if len(projected) == 0 || projected[0].Type == "" {
 		t.Fatalf("projected events = %#v, want durable transcript projection", projected)
+	}
+	wantOrder := []string{"readiness", "draft_attempt", "model_draft_call", "draft_success", "final_confirm", "next_question_decision", "final_generated_artifacts"}
+	position := -1
+	for wantIndex, want := range wantOrder {
+		found := -1
+		for i := position + 1; i < len(transcriptEvents); i++ {
+			if transcriptEvents[i].Type == want {
+				found = i
+				break
+			}
+		}
+		if found < 0 {
+			t.Fatalf("event %q did not follow %q in transcript: %#v", want, wantOrder[:wantIndex], transcriptEvents)
+		}
+		position = found
 	}
 }
 

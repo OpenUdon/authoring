@@ -113,6 +113,9 @@ func RunInteractive[S, D, A any](ctx context.Context, in io.Reader, out io.Write
 		Autosave:       hooks.Autosave,
 		AfterDraft:     hooks.AfterDraft,
 		OnDraftError:   hooks.OnDraftError,
+		onEvent: func(event transcript.Event) {
+			events = append(events, Event{Kind: event.Type, Type: event.Type, Data: event})
+		},
 	}
 	if hooks.RefreshDocuments != nil {
 		opts.RefreshDocs = func(_ context.Context, current S, currentDocs []D) ([]D, error) {
@@ -224,9 +227,6 @@ func RunInteractive[S, D, A any](ctx context.Context, in io.Reader, out io.Write
 	}
 
 	result, err := runWithPromptSession(ctx, prompts.session, out, opts)
-	for _, event := range result.Events {
-		events = append(events, Event{Kind: event.Type, Type: event.Type, Data: event})
-	}
 	if err != nil {
 		if errors.Is(err, ErrNeedsInput) {
 			return zero, fmt.Errorf("interactive iCoT requires operator input: %w", err)

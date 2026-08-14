@@ -58,6 +58,7 @@ type Options[S, D, A any] struct {
 	SummarizeDraft  func(S) any
 	SummarizeResult func(A) any
 	OnDraftError    func(error)
+	onEvent         func(transcript.Event)
 
 	// Deprecated: MaxAttempts is ignored. The engine has no breadth ceiling and
 	// stops after three consecutive no-progress rounds.
@@ -123,7 +124,11 @@ func runWithPromptSession[S, D, A any](ctx context.Context, prompts *prompt.Sess
 	normalize(opts.Normalize, &state)
 	var events []transcript.Event
 	record := func(eventType, stage, message string, fields map[string]string) {
-		events = append(events, transcript.Event{Type: eventType, Stage: stage, Message: strings.TrimSpace(message), Fields: fields})
+		event := transcript.Event{Type: eventType, Stage: stage, Message: strings.TrimSpace(message), Fields: fields}
+		events = append(events, event)
+		if opts.onEvent != nil {
+			opts.onEvent(event)
+		}
 	}
 
 	for round := 1; ; round++ {
@@ -243,13 +248,23 @@ func confirm[S, D, A any](ctx context.Context, opts Options[S, D, A], prompts *p
 	if opts.FinalConfirm == nil && opts.finalConfirmWithPrompts == nil {
 		return finishResult(state, zeroResult(result, zero), events, prompts.Turns(), true), nil
 	}
-	events = append(events, transcript.Event{Type: "final_confirm", Stage: "confirm"})
+	event := transcript.Event{Type: "final_confirm", Stage: "confirm"}
+	events = append(events, event)
+	if opts.onEvent != nil {
+		opts.onEvent(event)
+	}
 	var artifact A
 	var err error
+	priorEvents := len(events)
 	if opts.finalConfirmWithPrompts != nil {
 		artifact, err = opts.finalConfirmWithPrompts(ctx, prompts, &state, docs, &events)
 	} else {
 		artifact, err = opts.FinalConfirm(ctx, &state, docs, &events)
+	}
+	if opts.onEvent != nil {
+		for _, added := range events[priorEvents:] {
+			opts.onEvent(added)
+		}
 	}
 	if err != nil {
 		return finishResult(state, zeroResult(result, zero), events, prompts.Turns(), false), err
@@ -257,7 +272,11 @@ func confirm[S, D, A any](ctx context.Context, opts Options[S, D, A], prompts *p
 	result.Artifact = artifact
 	result.Frontier = nil
 	if opts.SummarizeResult != nil {
-		events = append(events, transcript.Event{Type: "final_result", Stage: "confirm", Message: fmt.Sprint(opts.SummarizeResult(artifact))})
+		event = transcript.Event{Type: "final_result", Stage: "confirm", Message: fmt.Sprint(opts.SummarizeResult(artifact))}
+		events = append(events, event)
+		if opts.onEvent != nil {
+			opts.onEvent(event)
+		}
 	}
 	return finishResult(state, result, events, prompts.Turns(), true), nil
 }
