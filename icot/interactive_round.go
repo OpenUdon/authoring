@@ -295,9 +295,7 @@ func appendInteractiveEvents[S any](events *[]Event, source func(S) []Event, sta
 	if source == nil {
 		return
 	}
-	for _, event := range NormalizeEvents(source(state)) {
-		*events = append(*events, event)
-	}
+	*events = append(*events, NormalizeEvents(source(state))...)
 }
 
 func appendInteractiveEventsWithRecord[S any](source func(S) []Event, state S, record func(string, any)) {

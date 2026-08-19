@@ -96,9 +96,7 @@ func (session *PromptSession) Turns() []PromptTurn {
 
 func fromPromptTurns(turns []sessionpkg.PromptTurn) []PromptTurn {
 	out := make([]PromptTurn, 0, len(turns))
-	for _, turn := range turns {
-		out = append(out, turn)
-	}
+	out = append(out, turns...)
 	return out
 }
 
