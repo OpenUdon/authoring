@@ -28,8 +28,12 @@ func TestDurableContractVersions(t *testing.T) {
 		"transcript.Version":       transcript.Version,
 	}
 	for name, version := range versions {
-		if !strings.HasPrefix(version, "authoring.") || !strings.HasSuffix(version, ".v1") {
-			t.Fatalf("%s = %q, want authoring.*.v1", name, version)
+		wantSuffix := ".v1"
+		if name == "promptcontext.Version" {
+			wantSuffix = ".v2"
+		}
+		if !strings.HasPrefix(version, "authoring.") || !strings.HasSuffix(version, wantSuffix) {
+			t.Fatalf("%s = %q, want authoring.*%s", name, version, wantSuffix)
 		}
 	}
 }

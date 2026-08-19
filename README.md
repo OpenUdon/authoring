@@ -34,8 +34,8 @@ model-provider clients, live execution, governance, state, or reconciliation.
   planning.
 - `decision`: decision evidence, confidence behavior, and confirmation policy.
 - `report`: agent result contracts, report metadata, scorecards, and variants.
-- `promptcontext`: prompt-safe source documents, operations, schema hints, and
-  symbolic credential binding names.
+- `promptcontext`: `authoring.prompt-context.v2` source documents, operations,
+  schema hints, and symbolic OR-of-AND credential binding alternatives.
 
 ## Boundary
 
@@ -92,7 +92,7 @@ The two iCoT adapters share generic Authoring context and loop mechanics:
 - readiness issue and interactive question shapes with one forced flag, one
   recommendation, priority, concise rationale, and evidence references
 - decision evidence normalization and confirmation policy
-- prompt-safe source, operation, schema, and credential-binding context records
+- prompt-safe source, operation, schema, and credential-alternative context records
 - conservative lifecycle sibling expansion for selected API operations
 - agent result, diagnostic, artifact, metadata, and scorecard report shapes
 - common CLI flags for prompt mode, no-LLM, model labels, answers, reports, and

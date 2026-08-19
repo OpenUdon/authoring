@@ -16,11 +16,14 @@ func TestNormalizeContext(t *testing.T) {
 		},
 		Operations: []OperationCandidate{
 			{
-				ID:                 " create ",
-				SourceID:           "openapi",
-				Verb:               "post",
-				Path:               "/v1/items",
-				CredentialBindings: []string{" prod ", "prod"},
+				ID:       " create ",
+				SourceID: "openapi",
+				Verb:     "post",
+				Path:     "/v1/items",
+				CredentialBindingSets: []CredentialBindingSet{
+					{Bindings: []string{" tenant ", "prod", "prod"}},
+					{},
+				},
 				Tags:               []string{" Items ", "items"},
 				SelectionRationale: "uses token=sk-proj-abcdefghijklmnopqrstuvwxyz",
 			},
@@ -43,8 +46,8 @@ func TestNormalizeContext(t *testing.T) {
 	if ctx.Version != Version || len(ctx.Sources) != 1 || ctx.Sources[0].Kind != "openapi" {
 		t.Fatalf("context = %#v, want normalized source", ctx)
 	}
-	if got := ctx.Operations[0].CredentialBindings; len(got) != 1 || got[0] != "prod" {
-		t.Fatalf("credential bindings = %#v, want deduped symbolic names", got)
+	if got := ctx.Operations[0].CredentialBindingSets; len(got) != 2 || len(got[0].Bindings) != 2 || got[0].Bindings[0] != "prod" || got[0].Bindings[1] != "tenant" || got[1].Bindings == nil {
+		t.Fatalf("credential binding sets = %#v, want conjunctive bindings plus explicit anonymous alternative", got)
 	}
 	if ctx.Operations[0].Verb != "POST" || ctx.Operations[0].Tags[0] != "items" {
 		t.Fatalf("operation = %#v, want normalized operation", ctx.Operations[0])
@@ -65,7 +68,7 @@ func TestCanonicalJSON(t *testing.T) {
 	if err != nil {
 		t.Fatalf("CanonicalJSON error = %v", err)
 	}
-	if !strings.Contains(string(data), `"version": "authoring.prompt-context.v1"`) || !strings.Contains(string(data), `"verb": "GET"`) {
+	if !strings.Contains(string(data), `"version": "authoring.prompt-context.v2"`) || !strings.Contains(string(data), `"verb": "GET"`) {
 		t.Fatalf("json = %s", data)
 	}
 }

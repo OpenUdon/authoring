@@ -10,7 +10,7 @@ import (
 	"github.com/OpenUdon/authoring/trust"
 )
 
-const Version = "authoring.prompt-context.v1"
+const Version = "authoring.prompt-context.v2"
 
 // Context is a deterministic prompt-safe bundle of downstream metadata.
 type Context struct {
@@ -37,20 +37,27 @@ type SourceDocument struct {
 
 // OperationCandidate is a prompt-safe operation candidate summary.
 type OperationCandidate struct {
-	ID                 string            `json:"id"`
-	SourceID           string            `json:"source_id,omitempty"`
-	OperationID        string            `json:"operation_id,omitempty"`
-	Name               string            `json:"name,omitempty"`
-	Verb               string            `json:"verb,omitempty"`
-	Path               string            `json:"path,omitempty"`
-	Summary            string            `json:"summary,omitempty"`
-	RequestSchemaID    string            `json:"request_schema_id,omitempty"`
-	ResponseSchemaID   string            `json:"response_schema_id,omitempty"`
-	CredentialBindings []string          `json:"credential_bindings,omitempty"`
-	Tags               []string          `json:"tags,omitempty"`
-	Confidence         string            `json:"confidence,omitempty"`
-	SelectionRationale string            `json:"selection_rationale,omitempty"`
-	Metadata           map[string]string `json:"metadata,omitempty"`
+	ID                    string                 `json:"id"`
+	SourceID              string                 `json:"source_id,omitempty"`
+	OperationID           string                 `json:"operation_id,omitempty"`
+	Name                  string                 `json:"name,omitempty"`
+	Verb                  string                 `json:"verb,omitempty"`
+	Path                  string                 `json:"path,omitempty"`
+	Summary               string                 `json:"summary,omitempty"`
+	RequestSchemaID       string                 `json:"request_schema_id,omitempty"`
+	ResponseSchemaID      string                 `json:"response_schema_id,omitempty"`
+	CredentialBindingSets []CredentialBindingSet `json:"credential_binding_sets,omitempty"`
+	Tags                  []string               `json:"tags,omitempty"`
+	Confidence            string                 `json:"confidence,omitempty"`
+	SelectionRationale    string                 `json:"selection_rationale,omitempty"`
+	Metadata              map[string]string      `json:"metadata,omitempty"`
+}
+
+// CredentialBindingSet is one operation authentication alternative. Bindings
+// within a set are required together; separate sets are alternatives. An empty
+// set explicitly permits anonymous access.
+type CredentialBindingSet struct {
+	Bindings []string `json:"bindings"`
 }
 
 // SchemaHint is a prompt-safe schema summary, not a product schema contract.
@@ -139,7 +146,7 @@ func NormalizeOperations(operations []OperationCandidate) []OperationCandidate {
 		operation.Summary = redact(operation.Summary)
 		operation.RequestSchemaID = strings.TrimSpace(operation.RequestSchemaID)
 		operation.ResponseSchemaID = strings.TrimSpace(operation.ResponseSchemaID)
-		operation.CredentialBindings = normalizeList(operation.CredentialBindings, false)
+		operation.CredentialBindingSets = normalizeCredentialBindingSets(operation.CredentialBindingSets)
 		operation.Tags = normalizeList(operation.Tags, true)
 		operation.Confidence = norm.Token(operation.Confidence)
 		operation.SelectionRationale = redact(operation.SelectionRationale)
@@ -152,6 +159,17 @@ func NormalizeOperations(operations []OperationCandidate) []OperationCandidate {
 	slices.SortStableFunc(out, func(a, b OperationCandidate) int {
 		return norm.CompareStrings(a.ID, b.ID, a.SourceID, b.SourceID, a.OperationID, b.OperationID)
 	})
+	return out
+}
+
+func normalizeCredentialBindingSets(sets []CredentialBindingSet) []CredentialBindingSet {
+	if len(sets) == 0 {
+		return nil
+	}
+	out := make([]CredentialBindingSet, 0, len(sets))
+	for _, set := range sets {
+		out = append(out, CredentialBindingSet{Bindings: normalizeList(set.Bindings, false)})
+	}
 	return out
 }
 
