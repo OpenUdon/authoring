@@ -91,6 +91,31 @@ func TestRequiredAndYesNoPrompts(t *testing.T) {
 	}
 }
 
+func TestPromptMessageOverridesAndNilSessions(t *testing.T) {
+	var out strings.Builder
+	prompts := NewSession(strings.NewReader("\nvalue\nmaybe\nyes\n"), &out)
+	prompts.SetMessages(Messages{Required: "Provide %s.", InvalidYesNo: "Choose yes or no."})
+	if value, err := prompts.AskDefaultRequired("Name", ""); err != nil || value != "value" {
+		t.Fatalf("required value=%q err=%v", value, err)
+	}
+	if value, err := prompts.AskYesNo("Continue?", false); err != nil || !value {
+		t.Fatalf("yes/no value=%t err=%v", value, err)
+	}
+	if !strings.Contains(out.String(), "Provide Name.") || !strings.Contains(out.String(), "Choose yes or no.") {
+		t.Fatalf("custom messages missing: %s", out.String())
+	}
+	var nilSession *Session
+	if _, err := nilSession.Ask("Name"); err == nil || !strings.Contains(err.Error(), "session is required") {
+		t.Fatalf("nil Ask error = %v", err)
+	}
+	if _, err := nilSession.AskDefault("Name", "x"); err == nil || !strings.Contains(err.Error(), "session is required") {
+		t.Fatalf("nil AskDefault error = %v", err)
+	}
+	if _, err := nilSession.AskYesNo("Continue?", true); err == nil || !strings.Contains(err.Error(), "session is required") {
+		t.Fatalf("nil AskYesNo error = %v", err)
+	}
+}
+
 func TestRequiredPromptReturnsEOF(t *testing.T) {
 	var out strings.Builder
 	prompts := NewSession(strings.NewReader("\n"), &out)
@@ -122,6 +147,23 @@ func TestReplayScriptAndLabelAssertions(t *testing.T) {
 	}
 	if err := AssertLabelsInOrder("Use API?\nWorkflow goal\n", turns); err == nil {
 		t.Fatalf("AssertLabelsInOrder accepted out-of-order labels")
+	}
+	if err := AssertLabelsInOrder("anything", []session.PromptTurn{{Label: " "}}); err == nil || !strings.Contains(err.Error(), "turn 1") {
+		t.Fatalf("AssertLabelsInOrder empty-label error = %v", err)
+	}
+}
+
+func TestPromptTranscriptRejectsUnredactedSensitiveState(t *testing.T) {
+	secret := "do-not-echo-this"
+	path := filepath.Join(t.TempDir(), "transcript.json")
+	record := NewTranscript("s1", []session.PromptTurn{{Label: "Credential", Answer: secret, Sensitive: true}}, nil, session.State{})
+	err := SaveTranscript(path, record)
+	if err == nil || strings.Contains(err.Error(), secret) {
+		t.Fatalf("unredacted persistence error = %v", err)
+	}
+	record.Session.Turns[0].Redacted = true
+	if err := SaveTranscript(path, record); err != nil {
+		t.Fatalf("redacted transcript rejected: %v", err)
 	}
 }
 

@@ -24,6 +24,7 @@ func RunInteractive[S, D, A any](ctx context.Context, in io.Reader, out io.Write
 	}
 	prompts := NewPromptSession(in, out)
 	prompts.SetDefaultMode(hooks.DefaultMode)
+	prompts.SetMessages(hooks.Messages)
 	extractor := hooks.Extractor
 	if extractor == nil {
 		extractor = NoopExtractor[S, D]{}
@@ -38,11 +39,12 @@ func RunInteractive[S, D, A any](ctx context.Context, in io.Reader, out io.Write
 	}
 
 	opening := strings.TrimSpace(hooks.Opening)
+	openingLabel := firstNonEmpty(hooks.OpeningLabel, "Goal")
 	if opening == "" {
 		if hooks.OpeningPrompt != "" {
 			fmt.Fprintln(out, hooks.OpeningPrompt)
 		}
-		answer, err := prompts.Ask("Workflow goal")
+		answer, err := prompts.Ask(openingLabel)
 		if err != nil {
 			return zero, err
 		}
@@ -87,8 +89,8 @@ func RunInteractive[S, D, A any](ctx context.Context, in io.Reader, out io.Write
 				return zero, err
 			}
 		}
-		record("progressive_question", InteractiveQuestion{Prompt: "Workflow goal", Slots: []string{"workflow.goal"}})
-		record("progressive_answer", PromptTurn{Label: "Workflow goal", Answer: answer})
+		record("progressive_question", InteractiveQuestion{Prompt: openingLabel, Slots: []string{"goal"}})
+		record("progressive_answer", PromptTurn{Label: openingLabel, Answer: answer, Source: "user"})
 	}
 	if !hooks.NoLLM && !noopExtractor && len(docs) > 1 && opening != "" {
 		ranked, err := extractor.Disambiguate(ctx, opening, docs)
@@ -104,17 +106,24 @@ func RunInteractive[S, D, A any](ctx context.Context, in io.Reader, out io.Write
 	}
 
 	opts := Options[S, D, A]{
-		Session:        state,
-		Documents:      docs,
-		DefaultMode:    hooks.DefaultMode,
-		Normalize:      hooks.Normalize,
-		CheckReadiness: hooks.CheckReadiness,
-		Ready:          hooks.Ready,
-		Autosave:       hooks.Autosave,
-		AfterDraft:     hooks.AfterDraft,
-		OnDraftError:   hooks.OnDraftError,
-		onEvent: func(event transcript.Event) {
+		Session:             state,
+		Documents:           docs,
+		DefaultMode:         hooks.DefaultMode,
+		FrontierText:        hooks.FrontierText,
+		Interview:           hooks.Interview,
+		MaxRounds:           hooks.MaxRounds,
+		Normalize:           hooks.Normalize,
+		ProgressFingerprint: hooks.ProgressFingerprint,
+		CheckReadiness:      hooks.CheckReadiness,
+		Ready:               hooks.Ready,
+		Autosave:            hooks.Autosave,
+		AfterDraft:          hooks.AfterDraft,
+		OnDraftError:        hooks.OnDraftError,
+		OnEvent: func(event transcript.Event) {
 			events = append(events, Event{Kind: event.Type, Type: event.Type, Data: event})
+			if hooks.OnEvent != nil {
+				hooks.OnEvent(event)
+			}
 		},
 	}
 	if hooks.RefreshDocuments != nil {
@@ -122,8 +131,17 @@ func RunInteractive[S, D, A any](ctx context.Context, in io.Reader, out io.Write
 			return hooks.RefreshDocuments(current, currentDocs)
 		}
 	}
+	var provisionalFrontier []Question
+	var provisionalValid, provisionalMutated bool
+	var displayedFrontier []Question
+	clearProvisionalFrontier := func() {
+		provisionalFrontier = nil
+		provisionalValid = false
+		provisionalMutated = false
+	}
 	if !hooks.NoLLM && !noopExtractor {
 		opts.Draft = func(ctx context.Context, current S, currentDocs []D, issues []session.ReadinessIssue, _ int) (S, error) {
+			clearProvisionalFrontier()
 			shouldDraft := true
 			if hooks.ShouldDraft != nil {
 				shouldDraft = hooks.ShouldDraft(current, currentDocs, issues)
@@ -142,14 +160,25 @@ func RunInteractive[S, D, A any](ctx context.Context, in io.Reader, out io.Write
 			if hooks.CheckReadiness != nil {
 				currentIssues = hooks.CheckReadiness(current, currentDocs)
 			}
-			questions := interactivePlanQuestions(hooks, current, currentDocs, currentIssues)
+			questions, err := interactivePlanQuestions(hooks, &current, currentDocs, currentIssues)
+			if err != nil {
+				clearProvisionalFrontier()
+				return current, err
+			}
+			questions = PlanFrontier(questions).Questions
+			provisionalFrontier = append([]Question(nil), questions...)
+			provisionalValid = true
 			for _, question := range questions {
 				if hooks.DraftQuestion != nil {
 					drafted, err := hooks.DraftQuestion(ctx, &current, currentDocs, currentIssues, question)
 					if err != nil {
+						// The outer loop discards the entire provisional draft on
+						// error, so its question plan must be discarded as well.
+						clearProvisionalFrontier()
 						return current, err
 					}
 					if drafted {
+						provisionalMutated = true
 						normalizeInteractive(hooks.Normalize, &current)
 						record("question_draft_result", map[string]any{"question": question, "frontier": questions, "readiness_issues": currentIssues})
 					}
@@ -162,6 +191,7 @@ func RunInteractive[S, D, A any](ctx context.Context, in io.Reader, out io.Write
 						}
 					} else {
 						current = drafted
+						provisionalMutated = true
 					}
 				}
 			}
@@ -169,40 +199,52 @@ func RunInteractive[S, D, A any](ctx context.Context, in io.Reader, out io.Write
 		}
 		opts.ShouldDraft = func(S, []D, []session.ReadinessIssue, int) bool { return true }
 	}
-	opts.PlanFrontier = func(current S, currentDocs []D, issues []session.ReadinessIssue) []Question {
+	opts.planFrontierWithError = func(current *S, currentDocs []D, issues []session.ReadinessIssue) ([]Question, error) {
 		record("readiness_decision", issues)
-		questions := interactivePlanQuestions(hooks, current, currentDocs, issues)
+		questions := append([]Question(nil), provisionalFrontier...)
+		if !provisionalValid || provisionalMutated {
+			var err error
+			questions, err = interactivePlanQuestions(hooks, current, currentDocs, issues)
+			if err != nil {
+				return nil, err
+			}
+		}
+		questions = PlanFrontier(questions).Questions
+		clearProvisionalFrontier()
+		displayedFrontier = append([]Question(nil), questions...)
 		for _, question := range questions {
 			record("next_question_decision", question)
 		}
-		return questions
+		return questions, nil
 	}
-	opts.ApplyRound = func(current *S, answers []RoundAnswer, currentDocs []D) error {
-		if hooks.ApplyRound != nil {
-			if err := hooks.ApplyRound(current, answers, currentDocs); err != nil {
-				return err
+	if hooks.Interview == nil {
+		opts.ApplyRound = func(current *S, answers []RoundAnswer, currentDocs []D) error {
+			if hooks.ApplyRound != nil {
+				return hooks.ApplyRound(current, answers, currentDocs)
 			}
-		} else {
 			if hooks.ApplyAnswer == nil {
 				return fmt.Errorf("frontier answer hook is required")
 			}
-			var currentIssues []session.ReadinessIssue
-			if hooks.CheckReadiness != nil {
-				currentIssues = hooks.CheckReadiness(*current, currentDocs)
-			}
-			questions := interactivePlanQuestions(hooks, *current, currentDocs, currentIssues)
 			byID := map[string]Question{}
-			for _, question := range questions {
+			for _, question := range displayedFrontier {
 				byID[question.ID] = question
 			}
 			for _, answer := range answers {
-				question := byID[answer.QuestionID]
-				if question.Prompt == "" && len(questions) == 1 {
-					question = questions[0]
+				question, ok := byID[answer.QuestionID]
+				if !ok {
+					return fmt.Errorf("answer references unknown displayed question %q", answer.QuestionID)
 				}
 				if err := hooks.ApplyAnswer(current, question, answer.Value, currentDocs); err != nil {
 					return err
 				}
+			}
+			return nil
+		}
+	}
+	opts.AfterRound = func(current *S, answers []RoundAnswer, currentDocs []D) error {
+		if hooks.AfterRound != nil {
+			if err := hooks.AfterRound(current, currentDocs); err != nil {
+				return err
 			}
 		}
 		if hooks.DeterministicPrefill != nil {
@@ -212,10 +254,16 @@ func RunInteractive[S, D, A any](ctx context.Context, in io.Reader, out io.Write
 		for _, answer := range answers {
 			record("progressive_answer", answer)
 		}
+		displayedFrontier = nil
 		return nil
 	}
 	opts.finalConfirmWithPrompts = func(_ context.Context, shared *prompt.Session, current *S, currentDocs []D, _ *[]transcript.Event) (A, error) {
-		record("next_question_decision", InteractiveQuestion{Prompt: "Confirm first valid intent", Recommendation: "save", Slots: []string{"confirmation"}})
+		if hooks.FinalQuestion != nil {
+			question := readinessQuestion(hooks.FinalQuestion(*current, currentDocs))
+			if question.Prompt != "" {
+				record("next_question_decision", question)
+			}
+		}
 		if hooks.FinalConfirm == nil {
 			return zero, fmt.Errorf("final confirmation hook is required")
 		}
@@ -241,17 +289,28 @@ func RunInteractive[S, D, A any](ctx context.Context, in io.Reader, out io.Write
 	return result.Artifact, nil
 }
 
-func interactivePlanQuestions[S, D, A any](hooks InteractiveHooks[S, D, A], state S, docs []D, issues []session.ReadinessIssue) []Question {
+func interactivePlanQuestions[S, D, A any](hooks InteractiveHooks[S, D, A], state *S, docs []D, issues []session.ReadinessIssue) ([]Question, error) {
+	if hooks.Interview != nil {
+		return hooks.Interview.Plan(state, docs)
+	}
 	if hooks.PlanFrontier != nil {
-		return hooks.PlanFrontier(state, docs, issues)
+		return hooks.PlanFrontier(*state, docs, issues), nil
 	}
 	if hooks.PlanQuestion != nil {
-		question := hooks.PlanQuestion(state, docs, issues)
+		question := hooks.PlanQuestion(*state, docs, issues)
 		if strings.TrimSpace(question.Prompt) != "" {
-			return []Question{question}
+			return []Question{question}, nil
 		}
 	}
-	return nil
+	return nil, nil
+}
+
+func readinessQuestion(question Question) Question {
+	plan := PlanFrontier([]Question{question})
+	if len(plan.Questions) == 0 {
+		return Question{}
+	}
+	return plan.Questions[0]
 }
 
 func interactiveModelDraft[S, D, A any](ctx context.Context, extractor Extractor[S, D], hooks InteractiveHooks[S, D, A], opening string, turns []PromptTurn, state S, docs []D, issues []session.ReadinessIssue, kind string, record func(string, any)) (S, error) {

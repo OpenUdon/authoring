@@ -2,6 +2,7 @@ package session
 
 import (
 	"bytes"
+	"strings"
 	"testing"
 
 	"github.com/OpenUdon/authoring/trust"
@@ -64,6 +65,28 @@ func TestNormalizeSessionDeterministic(t *testing.T) {
 	}
 	if got.Metadata["product"] != "ramen" || len(got.Metadata) != 1 {
 		t.Fatalf("metadata = %#v, want trimmed non-empty metadata", got.Metadata)
+	}
+}
+
+func TestValidateForPersistenceRejectsOnlyUnredactedSensitiveValues(t *testing.T) {
+	secret := "secret-value-must-not-appear"
+	for _, state := range []State{
+		{Turns: []PromptTurn{{Label: "Credential", Answer: secret, Sensitive: true}}},
+		{Answers: []Answer{{Slot: "credential", Value: secret, Sensitive: true}}},
+		{Answers: []Answer{{Value: secret, Sensitive: true}}},
+	} {
+		if err := ValidateForPersistence(state); err == nil || strings.Contains(err.Error(), secret) {
+			t.Fatalf("persistence validation error = %v", err)
+		}
+		if _, err := CanonicalJSON(state); err == nil || strings.Contains(err.Error(), secret) {
+			t.Fatalf("canonical persistence error = %v", err)
+		}
+	}
+	if _, err := CanonicalJSON(State{
+		Turns:   []PromptTurn{{Label: "Credential", Answer: "[redacted]", Sensitive: true, Redacted: true}},
+		Answers: []Answer{{Slot: "credential", Value: "[redacted]", Sensitive: true, Redacted: true}},
+	}); err != nil {
+		t.Fatalf("redacted state rejected: %v", err)
 	}
 }
 

@@ -143,12 +143,6 @@ func normalizeEvents(events []Event) []Event {
 		}
 		out = append(out, event)
 	}
-	slices.SortStableFunc(out, func(a, b Event) int {
-		if diff := norm.CompareSeverity(a.Severity, b.Severity); diff != 0 {
-			return diff
-		}
-		return norm.CompareStrings(a.TimeUTC, b.TimeUTC, a.Type, b.Type, a.Stage, b.Stage, a.ID, b.ID)
-	})
 	return out
 }
 

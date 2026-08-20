@@ -3,6 +3,7 @@ package interview
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"reflect"
 	"strings"
 	"testing"
@@ -126,6 +127,97 @@ func TestUnifiedEvidenceAttributesAreNormalizedAndDurable(t *testing.T) {
 	}
 	if got := roundTrip.Evidence[0].Attributes["confidence"]; got != "review" {
 		t.Fatalf("round-trip confidence = %q", got)
+	}
+}
+
+func TestApplyRoundSettlesMixedAnswersAndDeferralsAtomically(t *testing.T) {
+	state := State{NoProgressRounds: 2, Nodes: []Node{{ID: "answer", Priority: 2}, {ID: "defer", Priority: 1, Deferrable: true}}}
+	answer := Answer{ID: "a1", NodeID: "answer", Value: "chosen", Source: "user", EvidenceRefs: []string{"e1"}}
+	deferral := Deferral{ID: "d1", NodeID: "defer", Owner: "api owner", Impact: "mapping blocked", UnblockCondition: "schema published", SuggestedNextAction: "attach source"}
+	got, err := ApplyRound(state, []Resolution{
+		{NodeID: "answer", Answer: &answer, Evidence: []Evidence{{ID: "e1", Kind: EvidenceUserDecision, NodeID: "answer", Summary: "operator chose value"}}},
+		{NodeID: "defer", Deferral: &deferral, Evidence: []Evidence{{ID: "e2", Kind: EvidenceDeferral, NodeID: "defer", Summary: "schema unavailable"}}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Round != 1 || got.NoProgressRounds != 0 || len(got.Answers) != 1 || len(got.Deferrals) != 1 || len(got.Evidence) != 2 {
+		t.Fatalf("settled state = %#v", got)
+	}
+	statuses := map[string]string{}
+	for _, node := range got.Nodes {
+		statuses[node.ID] = node.Status
+	}
+	if statuses["answer"] != StatusSettled || statuses["defer"] != StatusDeferred {
+		t.Fatalf("statuses = %#v", statuses)
+	}
+}
+
+func TestApplyRoundRejectsIncompleteDuplicateAndNonFrontierWithoutMutation(t *testing.T) {
+	base := Normalize(State{Nodes: []Node{{ID: "a"}, {ID: "b"}, {ID: "later", Dependencies: []string{"a"}}}})
+	before, err := CanonicalJSON(base)
+	if err != nil {
+		t.Fatal(err)
+	}
+	a := Answer{ID: "a1", NodeID: "a", Value: "one"}
+	b := Answer{ID: "b1", NodeID: "b", Value: "two"}
+	later := Answer{ID: "l1", NodeID: "later", Value: "early"}
+	for _, resolutions := range [][]Resolution{
+		{{NodeID: "a", Answer: &a}},
+		{{NodeID: "a", Answer: &a}, {NodeID: "a", Answer: &b}},
+		{{NodeID: "a", Answer: &a}, {NodeID: "later", Answer: &later}},
+		{{NodeID: "a", Answer: &a}, {NodeID: "b", Answer: &b, Evidence: []Evidence{{ID: "bad", Kind: "invalid", Summary: "bad"}}}},
+	} {
+		got, err := ApplyRound(base, resolutions)
+		if err == nil {
+			t.Fatalf("ApplyRound accepted %#v", resolutions)
+		}
+		after, marshalErr := CanonicalJSON(got)
+		if marshalErr != nil || !reflect.DeepEqual(before, after) {
+			t.Fatalf("failed round changed state: %s != %s (marshal %v)", before, after, marshalErr)
+		}
+	}
+}
+
+func TestApplyRoundSettlesWideFrontier(t *testing.T) {
+	const count = 20000
+	nodes := make([]Node, count)
+	resolutions := make([]Resolution, count)
+	for index := range nodes {
+		nodeID := fmt.Sprintf("node-%05d", index)
+		nodes[index] = Node{ID: nodeID}
+		answer := Answer{ID: fmt.Sprintf("answer-%05d", index), NodeID: nodeID, Value: "accepted"}
+		resolutions[index] = Resolution{NodeID: nodeID, Answer: &answer}
+	}
+	got, err := ApplyRound(State{Nodes: nodes}, resolutions)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Round != 1 || len(got.Answers) != count {
+		t.Fatalf("wide settlement round=%d answers=%d", got.Round, len(got.Answers))
+	}
+	for _, node := range got.Nodes {
+		if node.Status != StatusSettled {
+			t.Fatalf("node %q status = %q", node.ID, node.Status)
+		}
+	}
+}
+
+func TestValidateDeepDependencyGraphIteratively(t *testing.T) {
+	const count = 20000
+	nodes := make([]Node, count)
+	for index := range nodes {
+		nodes[index] = Node{ID: fmt.Sprintf("node-%05d", index)}
+		if index > 0 {
+			nodes[index].Dependencies = []string{nodes[index-1].ID}
+		}
+	}
+	if err := Validate(State{Nodes: nodes}); err != nil {
+		t.Fatalf("deep acyclic graph rejected: %v", err)
+	}
+	nodes[0].Dependencies = []string{nodes[len(nodes)-1].ID}
+	if err := Validate(State{Nodes: nodes}); err == nil {
+		t.Fatal("deep cycle was not detected")
 	}
 }
 

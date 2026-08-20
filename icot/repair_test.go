@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	readinesspkg "github.com/OpenUdon/authoring/readiness"
+	"github.com/OpenUdon/authoring/transcript"
 )
 
 type repairState struct {
@@ -143,6 +144,23 @@ func TestNormalizeReviewIssues(t *testing.T) {
 	}
 	if issues[0].Issue.Code != "missing" || issues[1].Remediation.Code != "fix_it" || issues[1].Remediation.Action != "ask_user" {
 		t.Fatalf("issues = %#v, want sorted normalized issues", issues)
+	}
+}
+
+func TestRepairRejectsNilContextsAndSequencesEvents(t *testing.T) {
+	if _, err := RunRepair[repairState, string, string](nil, RepairOptions[repairState, string, string]{}); err == nil || !strings.Contains(err.Error(), "context is required") {
+		t.Fatalf("nil repair context error = %v", err)
+	}
+	if _, err := RunRuntimeRepair[repairState, string, string](nil, repairRuntime{}, RepairConfig[repairState, string, string]{}); err == nil || !strings.Contains(err.Error(), "context is required") {
+		t.Fatalf("nil runtime repair context error = %v", err)
+	}
+	var observed []string
+	result, err := RunRepair(context.Background(), RepairOptions[repairState, string, string]{
+		Review:  func(context.Context, repairState, []string, string) ([]readinesspkg.Issue, error) { return nil, nil },
+		OnEvent: func(event transcript.Event) { observed = append(observed, event.ID) },
+	})
+	if err != nil || len(result.Events) != 1 || result.Events[0].ID != "000001" || len(observed) != 1 || observed[0] != "000001" {
+		t.Fatalf("repair events=%#v observed=%#v err=%v", result.Events, observed, err)
 	}
 }
 

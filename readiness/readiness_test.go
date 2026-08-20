@@ -60,8 +60,8 @@ func TestUnknownSeverityOrderingMatchesSessionAndTranscript(t *testing.T) {
 		{Type: "event", Severity: "needs-review", Message: "unknown"},
 		{Type: "event", Severity: "warning", Message: "warning"},
 	}})
-	if len(record.Events) != 3 || record.Events[0].Message != "unknown" {
-		t.Fatalf("transcript events = %#v, want unknown severity first", record.Events)
+	if len(record.Events) != 3 || record.Events[0].Message != "info" || record.Events[1].Message != "unknown" {
+		t.Fatalf("transcript events = %#v, want original chronology", record.Events)
 	}
 }
 

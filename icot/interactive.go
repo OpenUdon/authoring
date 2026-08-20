@@ -3,7 +3,7 @@ package icot
 import (
 	"context"
 	"encoding/json"
-	"fmt"
+	"errors"
 	"io"
 	"os"
 	"path/filepath"
@@ -50,45 +50,71 @@ func NewPromptSession(in io.Reader, out io.Writer) *PromptSession {
 
 // SetDefaultMode controls how defaulted prompts are handled.
 func (session *PromptSession) SetDefaultMode(mode prompt.DefaultMode) {
-	if session == nil {
+	if session == nil || session.session == nil {
 		return
 	}
 	session.session.SetDefaultMode(mode)
 }
 
+// SetMessages overrides reusable prompt validation messages.
+func (session *PromptSession) SetMessages(messages prompt.Messages) {
+	if session == nil || session.session == nil {
+		return
+	}
+	session.session.SetMessages(messages)
+}
+
 // Ask prompts for a required free-form value.
 func (session *PromptSession) Ask(label string) (string, error) {
+	if session == nil || session.session == nil {
+		return "", errors.New("icot prompt session is required")
+	}
 	return session.session.Ask(label)
 }
 
 // AskDefault prompts for a value, returning current when the answer is blank.
 func (session *PromptSession) AskDefault(label, current string) (string, error) {
+	if session == nil || session.session == nil {
+		return "", errors.New("icot prompt session is required")
+	}
 	return session.session.AskDefault(label, current)
 }
 
 // AskDefaultForced prints a defaulted prompt and waits for user input.
 func (session *PromptSession) AskDefaultForced(label, current string) (string, error) {
+	if session == nil || session.session == nil {
+		return "", errors.New("icot prompt session is required")
+	}
 	return session.session.AskDefaultForced(label, current)
 }
 
 // AskOptionalDefault prompts for an optional value with a default.
 func (session *PromptSession) AskOptionalDefault(label, current string) (string, error) {
+	if session == nil || session.session == nil {
+		return "", errors.New("icot prompt session is required")
+	}
 	return session.session.AskOptionalDefault(label, current)
 }
 
 // AskDefaultRequired prompts until a non-empty value is available.
 func (session *PromptSession) AskDefaultRequired(label, current string) (string, error) {
+	if session == nil || session.session == nil {
+		return "", errors.New("icot prompt session is required")
+	}
 	return session.session.AskDefaultRequired(label, current)
 }
 
 // AskYesNo prompts for a yes/no answer with a default.
 func (session *PromptSession) AskYesNo(label string, defaultYes bool) (bool, error) {
+	if session == nil || session.session == nil {
+		return false, errors.New("icot prompt session is required")
+	}
 	return session.session.AskYesNo(label, defaultYes)
 }
 
 // Turns returns a copy of recorded prompt turns.
 func (session *PromptSession) Turns() []PromptTurn {
-	if session == nil {
+	if session == nil || session.session == nil {
 		return nil
 	}
 	return fromPromptTurns(session.session.Turns())
@@ -108,15 +134,7 @@ func OneLine(value string) string {
 // AssertPromptLabelsInOrder verifies that prompt labels were emitted in replay
 // order.
 func AssertPromptLabelsInOrder(output string, turns []PromptTurn) error {
-	offset := 0
-	for _, turn := range turns {
-		index := strings.Index(output[offset:], turn.Label)
-		if index < 0 {
-			return fmt.Errorf("prompt label %q not found after offset %d", turn.Label, offset)
-		}
-		offset += index + len(turn.Label)
-	}
-	return nil
+	return prompt.AssertLabelsInOrder(output, turns)
 }
 
 // SavePromptTranscript writes a prompt transcript with private-file
@@ -127,6 +145,14 @@ func SavePromptTranscript(path, version string, turns []PromptTurn, events []Eve
 	}
 	if strings.TrimSpace(version) == "" {
 		version = "authoring.icot-transcript.v1"
+	}
+	if err := sessionpkg.ValidateForPersistence(sessionpkg.State{Turns: turns}); err != nil {
+		return err
+	}
+	if validator, ok := session.(interface{ ValidateForPersistence() error }); ok {
+		if err := validator.ValidateForPersistence(); err != nil {
+			return err
+		}
 	}
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		return err
@@ -257,12 +283,20 @@ func (NoopExtractor[S, D]) Disambiguate(context.Context, string, []D) ([]string,
 
 // InteractiveHooks supplies product-specific behavior for the generic loop.
 type InteractiveHooks[S, D, A any] struct {
-	Session       S
-	Documents     []D
-	Opening       string
-	Brief         string
-	NoLLM         bool
-	DefaultMode   prompt.DefaultMode
+	Session             S
+	Documents           []D
+	Opening             string
+	Brief               string
+	NoLLM               bool
+	DefaultMode         prompt.DefaultMode
+	Messages            prompt.Messages
+	FrontierText        FrontierText
+	OpeningLabel        string
+	MaxRounds           int
+	Interview           *InterviewBinding[S, D]
+	ProgressFingerprint func(S, []D, []ReadinessIssue) (string, error)
+	OnEvent             func(transcript.Event)
+	// Deprecated: MaxAttempts is retained for source compatibility and ignored.
 	MaxAttempts   int
 	OpeningPrompt string
 
@@ -288,9 +322,11 @@ type InteractiveHooks[S, D, A any] struct {
 	Ready                func(S, []ReadinessIssue) bool
 	PlanFrontier         func(S, []D, []ReadinessIssue) []InteractiveQuestion
 	ApplyRound           func(*S, []RoundAnswer, []D) error
+	AfterRound           func(*S, []D) error
 	// Deprecated: adapted to a one-question frontier for source compatibility.
 	PlanQuestion       func(S, []D, []ReadinessIssue) InteractiveQuestion
 	ApplyAnswer        func(*S, InteractiveQuestion, string, []D) error
+	FinalQuestion      func(S, []D) InteractiveQuestion
 	FinalConfirm       func(*PromptSession, *S, []D, *[]Event) (A, error)
 	FinalResultSummary func(A) any
 	SaveTranscript     func([]PromptTurn, []Event, A) error
@@ -316,6 +352,10 @@ type InteractiveLifecycleOptions[S, D, A any] struct {
 // RunInteractiveWithLifecycle binds interactive hooks to caller-owned draft,
 // autosave, transcript, and cleanup lifecycle behavior.
 func RunInteractiveWithLifecycle[S, D, A any](ctx context.Context, in io.Reader, out io.Writer, hooks InteractiveHooks[S, D, A], opts InteractiveLifecycleOptions[S, D, A]) (A, error) {
+	if err := checkContext(ctx); err != nil {
+		var zero A
+		return zero, err
+	}
 	draftPath := strings.TrimSpace(opts.DraftPath)
 	session := hooks.Session
 	if draftPath != "" && opts.LoadDraft != nil {

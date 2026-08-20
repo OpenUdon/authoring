@@ -31,12 +31,24 @@ const (
 	DefaultsSilent
 )
 
+// Messages customizes reusable prompt validation messages. Required receives
+// the prompt label when it contains a %s formatting directive.
+type Messages struct {
+	Required     string
+	InvalidYesNo string
+
+	// Compatibility aliases are normalized into the fields above.
+	RequiredAnswer string
+	YesNo          string
+}
+
 // Session prompts on a reader/writer pair and records prompt turns.
 type Session struct {
 	reader      *bufio.Reader
 	out         io.Writer
 	turns       []session.PromptTurn
 	defaultMode DefaultMode
+	messages    Messages
 }
 
 // ReplayScript is a deterministic prompt replay fixture.
@@ -78,8 +90,20 @@ func (s *Session) SetDefaultMode(mode DefaultMode) {
 	s.defaultMode = mode
 }
 
+// SetMessages overrides reusable prompt validation messages. Empty fields use
+// the package defaults.
+func (s *Session) SetMessages(messages Messages) {
+	if s == nil {
+		return
+	}
+	s.messages = normalizeMessages(messages)
+}
+
 // Ask prompts for a required free-form value.
 func (s *Session) Ask(label string) (string, error) {
+	if s == nil {
+		return "", fmt.Errorf("prompt session is required")
+	}
 	label = strings.TrimSpace(label)
 	fmt.Fprintf(s.out, "%s: ", label)
 	value, err := s.next()
@@ -106,6 +130,9 @@ func (s *Session) AskOptionalDefault(label, current string) (string, error) {
 
 // AskDefaultRequired prompts until a non-empty value is available.
 func (s *Session) AskDefaultRequired(label, current string) (string, error) {
+	if s == nil {
+		return "", fmt.Errorf("prompt session is required")
+	}
 	for {
 		value, err := s.AskDefault(label, current)
 		if err != nil {
@@ -115,12 +142,15 @@ func (s *Session) AskDefaultRequired(label, current string) (string, error) {
 		if value != "" {
 			return value, nil
 		}
-		fmt.Fprintf(s.out, "%s is required.\n", strings.TrimSpace(label))
+		fmt.Fprintln(s.out, requiredMessage(s.messages, label))
 	}
 }
 
 // AskYesNo prompts for a yes/no answer with a default.
 func (s *Session) AskYesNo(label string, defaultYes bool) (bool, error) {
+	if s == nil {
+		return false, fmt.Errorf("prompt session is required")
+	}
 	label = strings.TrimSpace(label)
 	suffix := "y/N"
 	answer := "no"
@@ -157,7 +187,7 @@ func (s *Session) AskYesNo(label string, defaultYes bool) (bool, error) {
 			return false, nil
 		default:
 			s.record(session.PromptTurn{Label: label, Answer: raw, Default: answer, Source: "user"}, nil)
-			fmt.Fprintln(s.out, "Please answer yes or no.")
+			fmt.Fprintln(s.out, normalizeMessages(s.messages).InvalidYesNo)
 		}
 	}
 }
@@ -171,6 +201,9 @@ func (s *Session) Turns() []session.PromptTurn {
 }
 
 func (s *Session) askDefault(label, current string, autoBlank, forced bool) (string, error) {
+	if s == nil {
+		return "", fmt.Errorf("prompt session is required")
+	}
 	label = strings.TrimSpace(label)
 	current = strings.TrimSpace(current)
 	mode := s.defaultMode
@@ -221,6 +254,9 @@ func (s *Session) next() (string, error) {
 }
 
 func (s *Session) record(turn session.PromptTurn, err error) {
+	if s == nil {
+		return
+	}
 	if err != nil && strings.TrimSpace(turn.Answer) == "" {
 		return
 	}
@@ -265,10 +301,10 @@ func (script ReplayScript) Reader() io.Reader {
 // order.
 func AssertLabelsInOrder(output string, turns []session.PromptTurn) error {
 	offset := 0
-	for _, turn := range turns {
+	for index, turn := range turns {
 		label := strings.TrimSpace(turn.Label)
 		if label == "" {
-			continue
+			return fmt.Errorf("prompt label is required at replay turn %d", index+1)
 		}
 		index := strings.Index(output[offset:], label)
 		if index < 0 {
@@ -277,6 +313,31 @@ func AssertLabelsInOrder(output string, turns []session.PromptTurn) error {
 		offset += index + len(label)
 	}
 	return nil
+}
+
+func normalizeMessages(messages Messages) Messages {
+	messages.Required = firstMessage(messages.Required, messages.RequiredAnswer, "%s is required.")
+	messages.InvalidYesNo = firstMessage(messages.InvalidYesNo, messages.YesNo, "Please answer yes or no.")
+	messages.RequiredAnswer = messages.Required
+	messages.YesNo = messages.InvalidYesNo
+	return messages
+}
+
+func firstMessage(values ...string) string {
+	for _, value := range values {
+		if value = strings.TrimSpace(value); value != "" {
+			return value
+		}
+	}
+	return ""
+}
+
+func requiredMessage(messages Messages, label string) string {
+	message := normalizeMessages(messages).Required
+	if strings.Contains(message, "%s") {
+		return fmt.Sprintf(message, strings.TrimSpace(label))
+	}
+	return message
 }
 
 // NewTranscript builds a prompt transcript envelope from session and transcript
@@ -302,6 +363,9 @@ func NewTranscript(sessionID string, turns []session.PromptTurn, events []transc
 func SaveTranscript(path string, record PromptTranscript) error {
 	if strings.TrimSpace(path) == "" {
 		return nil
+	}
+	if err := session.ValidateForPersistence(record.Session); err != nil {
+		return err
 	}
 	record = normalizePromptTranscript(record)
 	data, err := json.MarshalIndent(record, "", "  ")

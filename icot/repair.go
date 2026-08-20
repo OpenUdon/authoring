@@ -215,6 +215,9 @@ func RunRepair[S, D, A any](ctx context.Context, opts RepairOptions[S, D, A]) (R
 // RunRuntimeRepair runs a bounded repair pass through the runtime review and
 // repair hook shapes.
 func RunRuntimeRepair[S, D, A any](ctx context.Context, runtime RepairRuntime[S, D, A], config RepairConfig[S, D, A]) (RepairResult[S], error) {
+	if err := checkContext(ctx); err != nil {
+		return RepairResult[S]{Status: RepairStatusRepairFailed}, err
+	}
 	if runtime == nil {
 		return RepairResult[S]{}, fmt.Errorf("icot repair runtime is required")
 	}
@@ -282,6 +285,7 @@ func eventRecorder(onEvent func(transcript.Event)) *eventLog {
 
 func (log *eventLog) Record(eventType, stage, message string, fields map[string]string) {
 	event := transcript.Event{
+		ID:      fmt.Sprintf("%06d", len(log.events)+1),
 		Type:    eventType,
 		Stage:   stage,
 		Message: strings.TrimSpace(message),
@@ -290,6 +294,21 @@ func (log *eventLog) Record(eventType, stage, message string, fields map[string]
 	log.events = append(log.events, event)
 	if log.onEvent != nil {
 		log.onEvent(event)
+	}
+}
+
+func (log *eventLog) SequenceFrom(start int) {
+	if start < 0 {
+		start = 0
+	}
+	if start > len(log.events) {
+		start = len(log.events)
+	}
+	for i := start; i < len(log.events); i++ {
+		log.events[i].ID = fmt.Sprintf("%06d", i+1)
+		if log.onEvent != nil {
+			log.onEvent(log.events[i])
+		}
 	}
 }
 

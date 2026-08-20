@@ -90,6 +90,16 @@ type Answer struct {
 	EvidenceRefs []string `json:"evidence_refs,omitempty"`
 }
 
+// Resolution settles exactly one node in a frontier round. Exactly one of
+// Answer or Deferral must be supplied. Evidence is appended in the same
+// transaction and may be referenced by the answer.
+type Resolution struct {
+	NodeID   string     `json:"node_id"`
+	Answer   *Answer    `json:"answer,omitempty"`
+	Deferral *Deferral  `json:"deferral,omitempty"`
+	Evidence []Evidence `json:"evidence,omitempty"`
+}
+
 // Diagnostic describes a graph or state-contract violation.
 type Diagnostic struct {
 	Code         string `json:"code"`
@@ -144,6 +154,10 @@ func CanonicalJSON(state State) ([]byte, error) {
 // deferral completeness.
 func Validate(state State) error {
 	state = Normalize(state)
+	return validateNormalized(state)
+}
+
+func validateNormalized(state State) error {
 	var diagnostics []Diagnostic
 	if state.Version != Version {
 		diagnostics = append(diagnostics, Diagnostic{Code: "version.unsupported", Message: fmt.Sprintf("unsupported interview version %q; want %q", state.Version, Version)})
@@ -187,6 +201,9 @@ func Validate(state State) error {
 		}
 		if !validEvidenceKind(evidence.Kind) {
 			diagnostics = append(diagnostics, Diagnostic{Code: "evidence.kind.invalid", NodeID: evidence.NodeID, Message: fmt.Sprintf("evidence %q has invalid kind %q", evidence.ID, evidence.Kind)})
+		}
+		if evidence.Summary == "" {
+			diagnostics = append(diagnostics, Diagnostic{Code: "evidence.summary.required", NodeID: evidence.NodeID, Message: fmt.Sprintf("evidence %q summary is required", evidence.ID)})
 		}
 		if evidence.NodeID != "" {
 			if _, ok := nodes[evidence.NodeID]; !ok {
@@ -267,9 +284,13 @@ func Validate(state State) error {
 // descending priority and then stable node ID.
 func Frontier(state State) ([]Node, error) {
 	state = Normalize(state)
-	if err := Validate(state); err != nil {
+	if err := validateNormalized(state); err != nil {
 		return nil, err
 	}
+	return frontierNormalized(state), nil
+}
+
+func frontierNormalized(state State) []Node {
 	statuses := make(map[string]string, len(state.Nodes))
 	for _, node := range state.Nodes {
 		statuses[node.ID] = node.Status
@@ -296,7 +317,7 @@ func Frontier(state State) ([]Node, error) {
 		}
 		return strings.Compare(a.ID, b.ID)
 	})
-	return frontier, nil
+	return frontier
 }
 
 // ValidateTransition rejects status changes that would rewrite settled or
@@ -322,7 +343,7 @@ func ValidateTransition(from, to string) error {
 // Transition returns state with one validated node status change.
 func Transition(state State, nodeID, status string) (State, error) {
 	state = Normalize(state)
-	if err := Validate(state); err != nil {
+	if err := validateNormalized(state); err != nil {
 		return state, err
 	}
 	index := slices.IndexFunc(state.Nodes, func(node Node) bool { return node.ID == strings.TrimSpace(nodeID) })
@@ -341,6 +362,131 @@ func Transition(state State, nodeID, status string) (State, error) {
 		state.Deferrals = slices.DeleteFunc(state.Deferrals, func(deferral Deferral) bool { return deferral.NodeID == state.Nodes[index].ID })
 	}
 	return Normalize(state), nil
+}
+
+// ApplyRound atomically resolves every node in the current frontier exactly
+// once, appends supplied evidence, and advances the interview by one round.
+// On failure it returns the normalized original state without mutating any of
+// the original state's slice or map storage.
+func ApplyRound(state State, resolutions []Resolution) (State, error) {
+	original := Normalize(state)
+	if err := validateNormalized(original); err != nil {
+		return original, err
+	}
+	frontier := frontierNormalized(original)
+	if len(frontier) == 0 {
+		return original, fmt.Errorf("current interview frontier is empty")
+	}
+	if len(resolutions) != len(frontier) {
+		return original, fmt.Errorf("frontier round must resolve all %d nodes exactly once; got %d resolutions", len(frontier), len(resolutions))
+	}
+
+	frontierByID := make(map[string]Node, len(frontier))
+	for _, node := range frontier {
+		frontierByID[node.ID] = node
+	}
+	existingAnswerIDs := make(map[string]bool, len(original.Answers))
+	for _, answer := range original.Answers {
+		existingAnswerIDs[answer.ID] = true
+	}
+	existingDeferralIDs := make(map[string]bool, len(original.Deferrals))
+	for _, deferral := range original.Deferrals {
+		existingDeferralIDs[deferral.ID] = true
+	}
+	existingEvidenceIDs := make(map[string]bool, len(original.Evidence))
+	for _, evidence := range original.Evidence {
+		existingEvidenceIDs[evidence.ID] = true
+	}
+
+	// Normalize again to allocate independent slice and map storage for the
+	// provisional transaction. Failed settlements must return original exactly
+	// as it stood before any resolution was considered.
+	work := Normalize(original)
+	nodeIndexByID := make(map[string]int, len(work.Nodes))
+	for index := range work.Nodes {
+		nodeIndexByID[work.Nodes[index].ID] = index
+	}
+	seenNodes := map[string]bool{}
+	for _, raw := range resolutions {
+		resolution := normalizeResolution(raw)
+		nodeID := resolution.NodeID
+		if nodeID == "" {
+			switch {
+			case resolution.Answer != nil:
+				nodeID = resolution.Answer.NodeID
+			case resolution.Deferral != nil:
+				nodeID = resolution.Deferral.NodeID
+			}
+		}
+		node, ok := frontierByID[nodeID]
+		if !ok {
+			return original, fmt.Errorf("node %q is not in the current frontier", nodeID)
+		}
+		if seenNodes[nodeID] {
+			return original, fmt.Errorf("frontier round contains multiple resolutions for node %q", nodeID)
+		}
+		seenNodes[nodeID] = true
+		if (resolution.Answer == nil) == (resolution.Deferral == nil) {
+			return original, fmt.Errorf("resolution for node %q must contain exactly one answer or deferral", nodeID)
+		}
+
+		for _, evidence := range resolution.Evidence {
+			if evidence.ID == "" || evidence.Summary == "" || !validEvidenceKind(evidence.Kind) {
+				return original, fmt.Errorf("evidence for node %q requires a unique ID, valid kind, and summary", nodeID)
+			}
+			if existingEvidenceIDs[evidence.ID] {
+				return original, fmt.Errorf("duplicate evidence ID %q", evidence.ID)
+			}
+			existingEvidenceIDs[evidence.ID] = true
+			work.Evidence = append(work.Evidence, evidence)
+		}
+
+		if resolution.Answer != nil {
+			answer := *resolution.Answer
+			if answer.NodeID == "" {
+				answer.NodeID = nodeID
+			}
+			if answer.NodeID != nodeID || answer.ID == "" || answer.Value == "" {
+				return original, fmt.Errorf("answer ID, matching node ID, and value are required for node %q", nodeID)
+			}
+			if existingAnswerIDs[answer.ID] {
+				return original, fmt.Errorf("duplicate answer ID %q", answer.ID)
+			}
+			existingAnswerIDs[answer.ID] = true
+			work.Answers = append(work.Answers, answer)
+			work.Nodes[nodeIndexByID[nodeID]].Status = StatusSettled
+			continue
+		}
+
+		deferral := *resolution.Deferral
+		if deferral.NodeID == "" {
+			deferral.NodeID = nodeID
+		}
+		if deferral.NodeID != nodeID || !node.Deferrable {
+			return original, fmt.Errorf("node %q is not deferrable or deferral node does not match", nodeID)
+		}
+		if deferral.ID == "" || deferral.Owner == "" || deferral.Impact == "" || deferral.UnblockCondition == "" || deferral.SuggestedNextAction == "" {
+			return original, fmt.Errorf("deferral ID, owner, impact, unblock condition, and suggested next action are required for node %q", nodeID)
+		}
+		if existingDeferralIDs[deferral.ID] {
+			return original, fmt.Errorf("duplicate deferral ID %q", deferral.ID)
+		}
+		existingDeferralIDs[deferral.ID] = true
+		work.Deferrals = append(work.Deferrals, deferral)
+		work.Nodes[nodeIndexByID[nodeID]].Status = StatusDeferred
+	}
+	for _, node := range frontier {
+		if !seenNodes[node.ID] {
+			return original, fmt.Errorf("frontier node %q was not resolved", node.ID)
+		}
+	}
+	work.Round++
+	work.NoProgressRounds = 0
+	work = Normalize(work)
+	if err := validateNormalized(work); err != nil {
+		return original, err
+	}
+	return work, nil
 }
 
 // ApplyAnswer settles a ready frontier node and appends its durable answer.
@@ -507,6 +653,20 @@ func normalizeDeferral(deferral Deferral) Deferral {
 	return deferral
 }
 
+func normalizeResolution(resolution Resolution) Resolution {
+	resolution.NodeID = strings.TrimSpace(resolution.NodeID)
+	if resolution.Answer != nil {
+		answer := normalizeAnswer(*resolution.Answer)
+		resolution.Answer = &answer
+	}
+	if resolution.Deferral != nil {
+		deferral := normalizeDeferral(*resolution.Deferral)
+		resolution.Deferral = &deferral
+	}
+	resolution.Evidence = normalizeEvidence(resolution.Evidence)
+	return resolution
+}
+
 func normalizeMetadata(metadata map[string]string) map[string]string {
 	if len(metadata) == 0 {
 		return nil
@@ -571,32 +731,53 @@ func cycleDiagnostics(nodes map[string]Node) []Diagnostic {
 		visiting
 		visited
 	)
-	marks := map[string]int{}
-	var diagnostics []Diagnostic
-	var visit func(string)
-	visit = func(id string) {
-		if marks[id] == visited {
-			return
-		}
-		if marks[id] == visiting {
-			diagnostics = append(diagnostics, Diagnostic{Code: "node.dependency.cycle", NodeID: id, Message: fmt.Sprintf("dependency cycle includes node %q", id)})
-			return
-		}
-		marks[id] = visiting
-		for _, dependency := range nodes[id].Dependencies {
-			if _, ok := nodes[dependency]; ok {
-				visit(dependency)
-			}
-		}
-		marks[id] = visited
+	type frame struct {
+		id   string
+		next int
 	}
+	marks := map[string]int{}
+	cycleNodes := map[string]bool{}
 	ids := make([]string, 0, len(nodes))
 	for id := range nodes {
 		ids = append(ids, id)
 	}
 	slices.Sort(ids)
-	for _, id := range ids {
-		visit(id)
+	for _, root := range ids {
+		if marks[root] != unvisited {
+			continue
+		}
+		marks[root] = visiting
+		stack := []frame{{id: root}}
+		for len(stack) > 0 {
+			top := &stack[len(stack)-1]
+			dependencies := nodes[top.id].Dependencies
+			if top.next >= len(dependencies) {
+				marks[top.id] = visited
+				stack = stack[:len(stack)-1]
+				continue
+			}
+			dependency := dependencies[top.next]
+			top.next++
+			if _, ok := nodes[dependency]; !ok {
+				continue
+			}
+			switch marks[dependency] {
+			case unvisited:
+				marks[dependency] = visiting
+				stack = append(stack, frame{id: dependency})
+			case visiting:
+				cycleNodes[dependency] = true
+			}
+		}
+	}
+	cycleIDs := make([]string, 0, len(cycleNodes))
+	for id := range cycleNodes {
+		cycleIDs = append(cycleIDs, id)
+	}
+	slices.Sort(cycleIDs)
+	diagnostics := make([]Diagnostic, 0, len(cycleIDs))
+	for _, id := range cycleIDs {
+		diagnostics = append(diagnostics, Diagnostic{Code: "node.dependency.cycle", NodeID: id, Message: fmt.Sprintf("dependency cycle includes node %q", id)})
 	}
 	return diagnostics
 }

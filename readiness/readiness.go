@@ -64,9 +64,10 @@ type Question struct {
 	Rationale      string   `json:"rationale,omitempty"`
 	EvidenceRefs   []string `json:"evidence_refs,omitempty"`
 
-	// Deprecated source-compatibility fields are ignored by the durable v2
-	// JSON shape. NormalizeQuestion projects them into the fields above so
-	// existing downstream source can migrate without a second loop engine.
+	// Deprecated source-compatibility fields are ignored by the durable v2 JSON
+	// shape. NormalizeQuestion applies alias inputs to the durable fields and
+	// writes the normalized durable values back through every alias. In
+	// particular, DefaultSource always normalizes to "recommendation".
 	ForceAsk        bool   `json:"-"`
 	AllowDefault    bool   `json:"-"`
 	DefaultAnswer   string `json:"-"`

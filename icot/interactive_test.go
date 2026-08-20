@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/OpenUdon/authoring/prompt"
+	sharedsession "github.com/OpenUdon/authoring/session"
 )
 
 type interactiveState struct {
@@ -113,7 +114,7 @@ func TestRunInteractiveOpeningDraftAutosaveTranscript(t *testing.T) {
 	if len(projected) == 0 || projected[0].Type == "" {
 		t.Fatalf("projected events = %#v, want durable transcript projection", projected)
 	}
-	wantOrder := []string{"readiness", "draft_attempt", "model_draft_call", "draft_success", "final_confirm", "next_question_decision", "final_generated_artifacts"}
+	wantOrder := []string{"readiness", "draft_attempt", "model_draft_call", "draft_success", "final_confirm", "final_generated_artifacts"}
 	position := -1
 	for wantIndex, want := range wantOrder {
 		found := -1
@@ -127,6 +128,11 @@ func TestRunInteractiveOpeningDraftAutosaveTranscript(t *testing.T) {
 			t.Fatalf("event %q did not follow %q in transcript: %#v", want, wantOrder[:wantIndex], transcriptEvents)
 		}
 		position = found
+	}
+	for _, event := range transcriptEvents {
+		if event.Type == "next_question_decision" {
+			t.Fatalf("ready draft emitted a phantom next-question decision: %#v", transcriptEvents)
+		}
 	}
 }
 
@@ -240,5 +246,174 @@ func TestRunInteractiveLifecycleAndCancellation(t *testing.T) {
 	})
 	if !errors.Is(err, ErrCanceled) {
 		t.Fatalf("RunInteractive canceled error = %v", err)
+	}
+}
+
+func TestRunInteractiveCachesPlannerAndReplansOnlyAfterMutation(t *testing.T) {
+	for _, test := range []struct {
+		name      string
+		mutate    bool
+		wantPlans int
+		wantLabel string
+	}{
+		{name: "unchanged", wantPlans: 1, wantLabel: "Operation initial"},
+		{name: "mutated", mutate: true, wantPlans: 2, wantLabel: "Operation revised"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			plans := 0
+			appliedLabel := ""
+			artifact, err := RunInteractive(context.Background(), nil, nil, InteractiveHooks[interactiveState, string, string]{
+				Opening:     "goal",
+				DefaultMode: prompt.DefaultsSilent,
+				Extractor:   fakeInteractiveExtractor{},
+				CheckReadiness: func(state interactiveState, _ []string) []ReadinessIssue {
+					if state.Op == "applied" {
+						return nil
+					}
+					return []ReadinessIssue{{Code: "missing", Severity: "blocking"}}
+				},
+				PlanQuestion: func(state interactiveState, _ []string, _ []ReadinessIssue) InteractiveQuestion {
+					plans++
+					suffix := "initial"
+					if state.Op == "revised" {
+						suffix = "revised"
+					}
+					return InteractiveQuestion{ID: "operation", Prompt: "Operation " + suffix, Recommendation: "list"}
+				},
+				DraftQuestion: func(_ context.Context, state *interactiveState, _ []string, _ []ReadinessIssue, _ InteractiveQuestion) (bool, error) {
+					if test.mutate {
+						state.Op = "revised"
+						return true, nil
+					}
+					return false, nil
+				},
+				ApplyAnswer: func(state *interactiveState, question InteractiveQuestion, _ string, _ []string) error {
+					appliedLabel = question.Prompt
+					state.Op = "applied"
+					return nil
+				},
+				FinalConfirm: func(_ *PromptSession, state *interactiveState, _ []string, _ *[]Event) (string, error) {
+					return state.Op, nil
+				},
+			})
+			if err != nil || artifact != "applied" {
+				t.Fatalf("artifact=%q err=%v", artifact, err)
+			}
+			if plans != test.wantPlans || appliedLabel != test.wantLabel {
+				t.Fatalf("plans=%d applied label=%q", plans, appliedLabel)
+			}
+		})
+	}
+}
+
+func TestRunInteractiveClearsProvisionalFrontierAfterDraftHookError(t *testing.T) {
+	plans := 0
+	appliedLabel := ""
+	draftErrors := 0
+	artifact, err := RunInteractive(context.Background(), nil, nil, InteractiveHooks[interactiveState, string, string]{
+		Opening:     "goal",
+		DefaultMode: prompt.DefaultsSilent,
+		Extractor: fakeInteractiveExtractor{draft: func(_ context.Context, req DraftRequest[interactiveState, string]) (interactiveState, error) {
+			state := req.Session
+			state.Op = "drafted"
+			return state, nil
+		}},
+		CheckReadiness: func(state interactiveState, _ []string) []ReadinessIssue {
+			if state.Op == "applied" {
+				return nil
+			}
+			return []ReadinessIssue{{Code: "missing", Severity: "blocking"}}
+		},
+		PlanQuestion: func(state interactiveState, _ []string, _ []ReadinessIssue) InteractiveQuestion {
+			plans++
+			label := "Operation initial"
+			if state.Op == "drafted" {
+				label = "Operation drafted"
+			}
+			return InteractiveQuestion{ID: "operation", Prompt: label, Recommendation: "list"}
+		},
+		DraftQuestion: func(context.Context, *interactiveState, []string, []ReadinessIssue, InteractiveQuestion) (bool, error) {
+			return false, errors.New("recoverable draft hook failure")
+		},
+		OnDraftError: func(error) {
+			draftErrors++
+		},
+		ApplyAnswer: func(state *interactiveState, question InteractiveQuestion, _ string, _ []string) error {
+			appliedLabel = question.Prompt
+			state.Op = "applied"
+			return nil
+		},
+		FinalConfirm: func(_ *PromptSession, state *interactiveState, _ []string, _ *[]Event) (string, error) {
+			return state.Op, nil
+		},
+	})
+	if err != nil || artifact != "applied" {
+		t.Fatalf("artifact=%q err=%v", artifact, err)
+	}
+	if plans != 2 || appliedLabel != "Operation initial" || draftErrors != 1 {
+		t.Fatalf("plans=%d applied label=%q draft errors=%d", plans, appliedLabel, draftErrors)
+	}
+}
+
+func TestRunInteractiveTextOverridesAndNilContext(t *testing.T) {
+	var out strings.Builder
+	artifact, err := RunInteractive(context.Background(), strings.NewReader("goal\nmanual\n"), &out, InteractiveHooks[interactiveState, string, string]{
+		OpeningLabel: "Intent",
+		FrontierText: FrontierText{
+			Heading:        "Choices %d",
+			Recommendation: "Suggested",
+			Rationale:      "Reason",
+			Evidence:       "Sources",
+		},
+		CheckReadiness: func(state interactiveState, _ []string) []ReadinessIssue {
+			if state.Op != "" {
+				return nil
+			}
+			return []ReadinessIssue{{Code: "missing", Severity: "blocking"}}
+		},
+		PlanQuestion: func(interactiveState, []string, []ReadinessIssue) InteractiveQuestion {
+			return InteractiveQuestion{ID: "op", Prompt: "Operation", Recommendation: "list", Forced: true, Rationale: "safer", EvidenceRefs: []string{"catalog"}}
+		},
+		ApplyAnswer: func(state *interactiveState, _ InteractiveQuestion, answer string, _ []string) error {
+			state.Op = answer
+			return nil
+		},
+		FinalConfirm: func(_ *PromptSession, state *interactiveState, _ []string, _ *[]Event) (string, error) {
+			return state.Op, nil
+		},
+	})
+	if err != nil || artifact != "manual" {
+		t.Fatalf("artifact=%q err=%v", artifact, err)
+	}
+	for _, text := range []string{"Intent: ", "Choices 1", "Suggested: list", "Reason: safer", "Sources: catalog"} {
+		if !strings.Contains(out.String(), text) {
+			t.Fatalf("output missing %q: %s", text, out.String())
+		}
+	}
+	if _, err := RunInteractive[interactiveState, string, string](nil, nil, nil, InteractiveHooks[interactiveState, string, string]{}); err == nil || !strings.Contains(err.Error(), "context is required") {
+		t.Fatalf("nil interactive context error = %v", err)
+	}
+	if _, err := RunInteractiveWithLifecycle[interactiveState, string, string](nil, nil, nil, InteractiveHooks[interactiveState, string, string]{}, InteractiveLifecycleOptions[interactiveState, string, string]{}); err == nil || !strings.Contains(err.Error(), "context is required") {
+		t.Fatalf("nil lifecycle context error = %v", err)
+	}
+}
+
+func TestSavePromptTranscriptRejectsSensitiveTurnsAndCapableSession(t *testing.T) {
+	secret := "must-not-appear"
+	path := filepath.Join(t.TempDir(), "prompt.json")
+	err := SavePromptTranscript(path, "", []PromptTurn{{Label: "Credential", Answer: secret, Sensitive: true}}, nil, nil)
+	if err == nil || strings.Contains(err.Error(), secret) {
+		t.Fatalf("sensitive turn error = %v", err)
+	}
+	err = SavePromptTranscript(path, "", []PromptTurn{{Label: "Credential", Answer: "[redacted]", Sensitive: true, Redacted: true}}, nil, sharedsession.State{
+		Answers: []sharedsession.Answer{{Slot: "credential", Value: secret, Sensitive: true}},
+	})
+	if err == nil || strings.Contains(err.Error(), secret) {
+		t.Fatalf("sensitive session error = %v", err)
+	}
+	if err := SavePromptTranscript(path, "", []PromptTurn{{Label: "Credential", Answer: "[redacted]", Sensitive: true, Redacted: true}}, nil, sharedsession.State{
+		Answers: []sharedsession.Answer{{Slot: "credential", Value: "[redacted]", Sensitive: true, Redacted: true}},
+	}); err != nil {
+		t.Fatalf("redacted prompt transcript rejected: %v", err)
 	}
 }

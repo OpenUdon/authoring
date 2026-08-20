@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/OpenUdon/authoring/interview"
 	"github.com/OpenUdon/authoring/prompt"
 	"github.com/OpenUdon/authoring/session"
 	"github.com/OpenUdon/authoring/transcript"
@@ -99,6 +100,9 @@ func TestBindRuntimeRequiresRuntime(t *testing.T) {
 	if _, err := RunRuntime[fakeState, string, string](context.Background(), nil, nil, nil, RuntimeConfig[fakeState, string]{}); err == nil {
 		t.Fatalf("RunRuntime accepted nil runtime")
 	}
+	if _, err := RunRuntime[fakeState, string, string](nil, nil, nil, &boundRuntime{}, RuntimeConfig[fakeState, string]{}); err == nil || !strings.Contains(err.Error(), "context is required") {
+		t.Fatalf("RunRuntime nil context error = %v", err)
+	}
 }
 
 func TestRunRuntimePropagatesHookErrors(t *testing.T) {
@@ -122,5 +126,36 @@ func TestRunRuntimeDraftErrorFallsBackToQuestion(t *testing.T) {
 	}
 	if result.Artifact != "defaulted" {
 		t.Fatalf("artifact = %q, want defaulted fallback", result.Artifact)
+	}
+}
+
+type interviewBoundRuntime struct{}
+
+func (interviewBoundRuntime) Draft(_ context.Context, state boundInterviewState, _ []string, _ []session.ReadinessIssue, _ int) (boundInterviewState, error) {
+	return state, nil
+}
+
+func (interviewBoundRuntime) Readiness(state boundInterviewState, _ []string) []session.ReadinessIssue {
+	if state.Values["a"] != "" {
+		return nil
+	}
+	return []session.ReadinessIssue{{Code: "missing", Severity: "blocking"}}
+}
+
+func (interviewBoundRuntime) InterviewBinding() InterviewBinding[boundInterviewState, string] {
+	return testInterviewBinding(nil)
+}
+
+func (interviewBoundRuntime) WriteArtifacts(_ context.Context, state *boundInterviewState, _ []string, _ *[]transcript.Event) (string, error) {
+	return state.Values["a"], nil
+}
+
+func TestRunRuntimeUsesInterviewBindingAlternative(t *testing.T) {
+	result, err := RunRuntime[boundInterviewState, string, string](context.Background(), nil, nil, interviewBoundRuntime{}, RuntimeConfig[boundInterviewState, string]{
+		Session:     boundInterviewState{Interview: interview.State{Nodes: []interview.Node{{ID: "a", Prompt: "A", Recommendation: "bound"}}}, Values: map[string]string{}},
+		DefaultMode: prompt.DefaultsSilent,
+	})
+	if err != nil || !result.Completed || result.Artifact != "bound" || result.Session.Interview.Round != 1 {
+		t.Fatalf("result=%#v err=%v", result, err)
 	}
 }

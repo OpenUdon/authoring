@@ -51,8 +51,8 @@ func TestNormalizeTranscriptDeterministic(t *testing.T) {
 	if got.Turns[0].Decisions[0].Stage != "operation_selection" {
 		t.Fatalf("decision = %#v, want session-normalized decision", got.Turns[0].Decisions[0])
 	}
-	if got.Events[0].Severity != "blocking" {
-		t.Fatalf("events = %#v, want blocking event first", got.Events)
+	if got.Events[0].Type != "draft" || got.Events[1].Type != "readiness" {
+		t.Fatalf("events = %#v, want original chronology", got.Events)
 	}
 	if got.Diagnostics[0].Code != "a" {
 		t.Fatalf("diagnostics = %#v, want Evidence diagnostic ordering", got.Diagnostics)

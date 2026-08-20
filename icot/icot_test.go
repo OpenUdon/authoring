@@ -2,11 +2,15 @@ package icot
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
+	"github.com/OpenUdon/authoring/lifecycle"
 	"github.com/OpenUdon/authoring/prompt"
 	"github.com/OpenUdon/authoring/session"
 	"github.com/OpenUdon/authoring/transcript"
@@ -82,6 +86,19 @@ func TestRunCanceled(t *testing.T) {
 	_, err := Run[fakeState, string, string](ctx, nil, nil, Options[fakeState, string, string]{})
 	if !errors.Is(err, ErrCanceled) {
 		t.Fatalf("Run error = %v, want ErrCanceled", err)
+	}
+}
+
+func TestLoopEntryPointsRejectNilContextsAndPromptSessions(t *testing.T) {
+	if _, err := Run[fakeState, string, string](nil, nil, nil, Options[fakeState, string, string]{}); err == nil || !strings.Contains(err.Error(), "context is required") {
+		t.Fatalf("nil Run context error = %v", err)
+	}
+	if _, err := runWithPromptSession[fakeState, string, string](context.Background(), nil, nil, Options[fakeState, string, string]{}); err == nil || !strings.Contains(err.Error(), "prompt session is required") {
+		t.Fatalf("nil prompt-session error = %v", err)
+	}
+	var prompts *PromptSession
+	if _, err := prompts.Ask("Goal"); err == nil || !strings.Contains(err.Error(), "prompt session is required") {
+		t.Fatalf("nil compatibility prompt error = %v", err)
 	}
 }
 
@@ -176,7 +193,7 @@ func TestRunCancelStopsRoundCollectionImmediately(t *testing.T) {
 	if !errors.Is(err, ErrCanceled) {
 		t.Fatalf("Run error = %v, want ErrCanceled", err)
 	}
-	if applied || len(result.Answers) != 1 || result.Answers[0].QuestionID != "first" || len(result.Turns) != 1 {
+	if applied || len(result.Answers) != 0 || len(result.Turns) != 1 {
 		t.Fatalf("cancel result = %#v, applied=%t", result, applied)
 	}
 }
@@ -328,6 +345,162 @@ func TestRunFastModeShowsOnlyQuestionsThatNeedInput(t *testing.T) {
 	}
 	if result.Session.Settled["safe"] != "safe" || result.Session.Settled["forced"] != "manual" {
 		t.Fatalf("settled = %#v", result.Session.Settled)
+	}
+}
+
+func TestRunSemanticFingerprintIgnoresVolatileState(t *testing.T) {
+	type volatileState struct {
+		Goal      string
+		UpdatedAt time.Time
+	}
+	apply := func(state *volatileState, _ Question, _ string, _ []string) error {
+		state.UpdatedAt = state.UpdatedAt.Add(time.Second)
+		return nil
+	}
+	base := Options[volatileState, string, string]{
+		Session:     volatileState{Goal: "unchanged", UpdatedAt: time.Unix(0, 0)},
+		DefaultMode: prompt.DefaultsSilent,
+		MaxRounds:   3,
+		CheckReadiness: func(volatileState, []string) []session.ReadinessIssue {
+			return []session.ReadinessIssue{{Code: "missing", Severity: "blocking"}}
+		},
+		PlanQuestion: func(volatileState, []string, []session.ReadinessIssue) Question {
+			return Question{ID: "goal", Prompt: "Goal", Recommendation: "unchanged"}
+		},
+		ApplyAnswer: apply,
+	}
+	_, err := Run(context.Background(), nil, nil, base)
+	if !errors.Is(err, ErrRoundLimit) || errors.Is(err, ErrNoProgress) {
+		t.Fatalf("default volatile fingerprint error = %v, want round limit", err)
+	}
+	base.ProgressFingerprint = func(state volatileState, _ []string, issues []session.ReadinessIssue) (string, error) {
+		data, err := json.Marshal(struct {
+			Goal   string
+			Issues []session.ReadinessIssue
+		}{state.Goal, issues})
+		return string(data), err
+	}
+	_, err = Run(context.Background(), nil, nil, base)
+	if !errors.Is(err, ErrNoProgress) || !errors.Is(err, ErrNeedsInput) {
+		t.Fatalf("semantic fingerprint error = %v, want no progress and needs input", err)
+	}
+}
+
+func TestRunRejectsUnmarshalableFingerprintAndInvalidRoundLimit(t *testing.T) {
+	type badState struct{ Values chan string }
+	_, err := Run(context.Background(), nil, nil, Options[badState, string, string]{
+		Session: badState{Values: make(chan string)},
+		CheckReadiness: func(badState, []string) []session.ReadinessIssue {
+			return []session.ReadinessIssue{{Code: "missing", Severity: "blocking"}}
+		},
+	})
+	if err == nil || !strings.Contains(err.Error(), "compute progress fingerprint") || !strings.Contains(err.Error(), "unsupported type") {
+		t.Fatalf("unmarshalable fingerprint error = %v", err)
+	}
+	_, err = Run[fakeState, string, string](context.Background(), nil, nil, Options[fakeState, string, string]{MaxRounds: -1})
+	if err == nil || !strings.Contains(err.Error(), "nonnegative") {
+		t.Fatalf("negative max-round error = %v", err)
+	}
+	if got, err := resolveMaxRounds(0); err != nil || got != DefaultMaxRounds {
+		t.Fatalf("resolveMaxRounds(0) = %d, %v", got, err)
+	}
+	if DefaultMaxRounds != 1000 {
+		t.Fatalf("DefaultMaxRounds = %d", DefaultMaxRounds)
+	}
+}
+
+func TestRunRoundFuseAndSilentCancelRecommendation(t *testing.T) {
+	applied := 0
+	_, err := Run[fakeState, string, string](context.Background(), nil, nil, Options[fakeState, string, string]{
+		DefaultMode: prompt.DefaultsSilent,
+		MaxRounds:   2,
+		CheckReadiness: func(fakeState, []string) []session.ReadinessIssue {
+			return []session.ReadinessIssue{{Code: "missing", Severity: "blocking"}}
+		},
+		PlanQuestion: func(state fakeState, _ []string, _ []session.ReadinessIssue) Question {
+			return Question{ID: "goal", Prompt: "Goal", Recommendation: fmt.Sprintf("value-%d", applied+1)}
+		},
+		ApplyAnswer: func(state *fakeState, _ Question, answer string, _ []string) error {
+			applied++
+			state.Goal = answer
+			return nil
+		},
+	})
+	if !errors.Is(err, ErrNeedsInput) || !errors.Is(err, ErrRoundLimit) || applied != 2 {
+		t.Fatalf("round fuse error=%v applied=%d", err, applied)
+	}
+
+	var got RoundAnswer
+	result, err := Run[fakeState, string, string](context.Background(), nil, nil, Options[fakeState, string, string]{
+		DefaultMode: prompt.DefaultsSilent,
+		CheckReadiness: func(state fakeState, _ []string) []session.ReadinessIssue {
+			if state.Ready {
+				return nil
+			}
+			return []session.ReadinessIssue{{Code: "missing", Severity: "blocking"}}
+		},
+		PlanQuestion: func(fakeState, []string, []session.ReadinessIssue) Question {
+			return Question{ID: "choice", Prompt: "Choice", Recommendation: "cancel"}
+		},
+		ApplyRound: func(state *fakeState, answers []RoundAnswer, _ []string) error {
+			got = answers[0]
+			state.Ready = true
+			return nil
+		},
+	})
+	if err != nil || !result.Completed || got.Value != "cancel" || got.Source != DefaultRecommendationSource {
+		t.Fatalf("silent cancel result=%#v answer=%#v err=%v", result, got, err)
+	}
+}
+
+func TestRunSequencesEventsThroughNormalizationAndPersistence(t *testing.T) {
+	var observed []transcript.Event
+	result, err := Run[fakeState, string, string](context.Background(), nil, nil, Options[fakeState, string, string]{
+		Session:        fakeState{Ready: true},
+		CheckReadiness: func(fakeState, []string) []session.ReadinessIssue { return nil },
+		OnEvent:        func(event transcript.Event) { observed = append(observed, event) },
+		FinalConfirm: func(_ context.Context, _ *fakeState, _ []string, events *[]transcript.Event) (string, error) {
+			*events = append(*events, transcript.Event{Type: "adapter_event"})
+			return "done", nil
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(result.Events) != len(observed) || len(result.Events) < 3 {
+		t.Fatalf("result events=%#v observed=%#v", result.Events, observed)
+	}
+	for index, event := range result.Events {
+		want := fmt.Sprintf("%06d", index+1)
+		if event.ID != want || observed[index].ID != want {
+			t.Fatalf("event %d IDs result=%q observed=%q", index, event.ID, observed[index].ID)
+		}
+	}
+	normalized := transcript.Normalize(transcript.Record{Events: result.Events})
+	for index := range result.Events {
+		if normalized.Events[index].Type != result.Events[index].Type || normalized.Events[index].ID != result.Events[index].ID {
+			t.Fatalf("normalize reordered events: %#v", normalized.Events)
+		}
+	}
+	path := filepath.Join(t.TempDir(), "events.json")
+	if err := lifecycle.SaveTranscript(path, normalized); err != nil {
+		t.Fatal(err)
+	}
+	loaded, ok, err := lifecycle.LoadTranscript(path)
+	if err != nil || !ok {
+		t.Fatalf("load transcript ok=%t err=%v", ok, err)
+	}
+	for index := range result.Events {
+		if loaded.Events[index].Type != result.Events[index].Type || loaded.Events[index].ID != result.Events[index].ID {
+			t.Fatalf("persistence reordered events: %#v", loaded.Events)
+		}
+	}
+}
+
+func TestValidateRoundAnswersRejectsUnknownIDs(t *testing.T) {
+	questions := []Question{{ID: "shown", Prompt: "Shown"}}
+	if err := validateRoundAnswers([]RoundAnswer{{QuestionID: "other", Value: "x"}}, questions); err == nil {
+		t.Fatal("unknown answer ID was accepted")
 	}
 }
 

@@ -2,6 +2,7 @@ package session
 
 import (
 	"encoding/json"
+	"fmt"
 	"slices"
 
 	"github.com/OpenUdon/authoring/decision"
@@ -98,7 +99,47 @@ func Normalize(state State) State {
 
 // CanonicalJSON returns deterministic indented JSON for state.
 func CanonicalJSON(state State) ([]byte, error) {
-	return json.MarshalIndent(Normalize(state), "", "  ")
+	if err := ValidateForPersistence(state); err != nil {
+		return nil, err
+	}
+	state = Normalize(state)
+	return json.MarshalIndent(state, "", "  ")
+}
+
+// ValidateForPersistence rejects explicitly sensitive prompt turns or answers
+// that have not been redacted. Errors identify only the record position and
+// never include the sensitive value.
+func ValidateForPersistence(state State) error {
+	for index, turn := range state.Turns {
+		if err := turn.ValidateForPersistence(); err != nil {
+			return fmt.Errorf("session turn %d: %w", index+1, err)
+		}
+	}
+	for index, answer := range state.Answers {
+		if err := answer.ValidateForPersistence(); err != nil {
+			return fmt.Errorf("session answer %d: %w", index+1, err)
+		}
+	}
+	return nil
+}
+
+// ValidateForPersistence validates state for durable serialization.
+func (state State) ValidateForPersistence() error { return ValidateForPersistence(state) }
+
+// ValidateForPersistence validates a prompt turn for durable serialization.
+func (turn PromptTurn) ValidateForPersistence() error {
+	if turn.Sensitive && !turn.Redacted {
+		return fmt.Errorf("sensitive prompt turn is not redacted")
+	}
+	return nil
+}
+
+// ValidateForPersistence validates an answer for durable serialization.
+func (answer Answer) ValidateForPersistence() error {
+	if answer.Sensitive && !answer.Redacted {
+		return fmt.Errorf("sensitive answer is not redacted")
+	}
+	return nil
 }
 
 func normalizeTurns(turns []PromptTurn) []PromptTurn {
@@ -135,7 +176,7 @@ func normalizeAnswers(answers []Answer) []Answer {
 		answer.Value = norm.Trim(answer.Value)
 		answer.Source = norm.Token(answer.Source)
 		answer.TimeUTC = norm.Trim(answer.TimeUTC)
-		if answer.Slot == "" {
+		if answer.Slot == "" && !answer.Sensitive {
 			continue
 		}
 		out = append(out, answer)
@@ -187,5 +228,5 @@ func compareReadiness(a, b ReadinessIssue) int {
 }
 
 func emptyTurn(turn PromptTurn) bool {
-	return turn.ID == "" && turn.Label == "" && turn.Question == "" && turn.Answer == "" && turn.Default == ""
+	return turn.ID == "" && turn.Label == "" && turn.Question == "" && turn.Answer == "" && turn.Default == "" && !turn.Sensitive
 }

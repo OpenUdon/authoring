@@ -22,6 +22,15 @@ type Runtime[S, D, A any] interface {
 	WriteArtifacts(context.Context, *S, []D, *[]transcript.Event) (A, error)
 }
 
+// InterviewRuntime is the bound product adapter shape that delegates frontier
+// projection and atomic settlement to an InterviewBinding.
+type InterviewRuntime[S, D, A any] interface {
+	Draft(context.Context, S, []D, []session.ReadinessIssue, int) (S, error)
+	Readiness(S, []D) []session.ReadinessIssue
+	InterviewBinding() InterviewBinding[S, D]
+	WriteArtifacts(context.Context, *S, []D, *[]transcript.Event) (A, error)
+}
+
 // LegacyRuntime is the pre-frontier source compatibility shape. BindRuntime
 // adapts it to one-question rounds; new runtimes should implement Runtime.
 type LegacyRuntime[S, D, A any] interface {
@@ -64,14 +73,19 @@ type DraftRepairRuntime[S, D any] interface {
 
 // RuntimeConfig configures a runtime-backed loop.
 type RuntimeConfig[S, D any] struct {
-	Session     S
-	Documents   []D
-	DefaultMode prompt.DefaultMode
-	Autosave    func(S) error
-	AfterDraft  func(S) error
+	Session             S
+	Documents           []D
+	DefaultMode         prompt.DefaultMode
+	FrontierText        FrontierText
+	Autosave            func(S) error
+	AfterDraft          func(S) error
+	ProgressFingerprint func(S, []D, []session.ReadinessIssue) (string, error)
+	OnEvent             func(transcript.Event)
+	MaxRounds           int
 
 	// Deprecated: retained for source compatibility and ignored.
-	MaxAttempts     int
+	MaxAttempts int
+	// Deprecated: retained for source compatibility and ignored.
 	NoProgressLimit int
 }
 
@@ -81,14 +95,24 @@ func BindRuntime[S, D, A any](runtime any, config RuntimeConfig[S, D]) (Options[
 		return Options[S, D, A]{}, fmt.Errorf("icot runtime is required")
 	}
 	opts := Options[S, D, A]{
-		Session:     config.Session,
-		Documents:   append([]D(nil), config.Documents...),
-		MaxAttempts: config.MaxAttempts,
-		DefaultMode: config.DefaultMode,
-		Autosave:    config.Autosave,
-		AfterDraft:  config.AfterDraft,
+		Session:             config.Session,
+		Documents:           append([]D(nil), config.Documents...),
+		MaxAttempts:         config.MaxAttempts,
+		MaxRounds:           config.MaxRounds,
+		DefaultMode:         config.DefaultMode,
+		FrontierText:        config.FrontierText,
+		Autosave:            config.Autosave,
+		AfterDraft:          config.AfterDraft,
+		ProgressFingerprint: config.ProgressFingerprint,
+		OnEvent:             config.OnEvent,
 	}
 	switch bound := runtime.(type) {
+	case InterviewRuntime[S, D, A]:
+		binding := bound.InterviewBinding()
+		opts.Interview = &binding
+		opts.Draft = bound.Draft
+		opts.CheckReadiness = bound.Readiness
+		opts.FinalConfirm = bound.WriteArtifacts
 	case Runtime[S, D, A]:
 		opts.Draft = bound.Draft
 		opts.CheckReadiness = bound.Readiness
@@ -121,6 +145,9 @@ func BindRuntime[S, D, A any](runtime any, config RuntimeConfig[S, D]) (Options[
 
 // RunRuntime runs the generic loop through a bound runtime.
 func RunRuntime[S, D, A any](ctx context.Context, in io.Reader, out io.Writer, runtime any, config RuntimeConfig[S, D]) (Result[S, A], error) {
+	if err := checkContext(ctx); err != nil {
+		return Result[S, A]{}, err
+	}
 	opts, err := BindRuntime[S, D, A](runtime, config)
 	if err != nil {
 		return Result[S, A]{}, err
