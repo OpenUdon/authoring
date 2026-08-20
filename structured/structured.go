@@ -132,7 +132,11 @@ func NormalizeSchema(schema any) (json.RawMessage, error) {
 	return json.RawMessage(normalized), nil
 }
 
-// ExtractJSONBlock extracts a JSON object or array from a raw model response.
+// ExtractJSONBlock extracts the first complete JSON object or array from a raw
+// model response. Fence unwrapping is capped at eight layers so adversarial
+// provider text cannot force unbounded cleanup work; the balanced JSON scan
+// then stops at the matching close delimiter and intentionally ignores prose
+// that follows the JSON value.
 func ExtractJSONBlock(response string) (string, error) {
 	response = strings.TrimSpace(response)
 	if response == "" {

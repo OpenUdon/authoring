@@ -137,4 +137,7 @@ func TestSchemaNormalizationAndDecodeHelpers(t *testing.T) {
 	if got.Name != "decoded" {
 		t.Fatalf("decoded output = %#v", got)
 	}
+	if jsonText, err := ExtractJSONBlock("```json\n{\"name\":\"bounded\"}\n```\nThis prose must not be consumed."); err != nil || jsonText != `{"name":"bounded"}` {
+		t.Fatalf("fenced trailing-prose extraction = %q, %v", jsonText, err)
+	}
 }

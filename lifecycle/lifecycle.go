@@ -31,6 +31,24 @@ type Draft[T any] struct {
 	Metadata   map[string]string      `json:"metadata,omitempty"`
 }
 
+// ValidateForPersistence rejects unredacted sensitive state embedded in draft.
+func (draft Draft[T]) ValidateForPersistence() error {
+	if draft.Session != nil {
+		if err := session.ValidateForPersistence(*draft.Session); err != nil {
+			return err
+		}
+	}
+	if validator, ok := any(draft.Draft).(interface{ ValidateForPersistence() error }); ok {
+		return validator.ValidateForPersistence()
+	}
+	// A value T does not include methods declared on *T. The draft field is
+	// addressable here, so inspect its pointer method set before serialization.
+	if validator, ok := any(&draft.Draft).(interface{ ValidateForPersistence() error }); ok {
+		return validator.ValidateForPersistence()
+	}
+	return nil
+}
+
 // DefaultDraftPath returns Authoring's default local draft path below root.
 func DefaultDraftPath(root string) string {
 	return filepath.Join(root, ".authoring", "draft.json")
@@ -64,6 +82,9 @@ func SaveDraft[T any](path string, draft Draft[T]) error {
 	path = strings.TrimSpace(path)
 	if path == "" {
 		return nil
+	}
+	if err := draft.ValidateForPersistence(); err != nil {
+		return err
 	}
 	return WriteJSON(path, NormalizeDraft(draft), 0o600)
 }
@@ -131,6 +152,11 @@ func LoadTranscript(path string) (transcript.Record, bool, error) {
 // WriteJSON writes value as deterministic indented JSON with a trailing
 // newline.
 func WriteJSON(path string, value any, perm os.FileMode) error {
+	if validator, ok := value.(interface{ ValidateForPersistence() error }); ok {
+		if err := validator.ValidateForPersistence(); err != nil {
+			return err
+		}
+	}
 	data, err := json.MarshalIndent(value, "", "  ")
 	if err != nil {
 		return err
@@ -139,7 +165,9 @@ func WriteJSON(path string, value any, perm os.FileMode) error {
 	return AtomicWrite(path, data, perm)
 }
 
-// AtomicWrite writes data to path through a sibling temp file and rename.
+// AtomicWrite writes data to path through a synced sibling temp file, rename,
+// and parent-directory sync. If the final directory sync fails, the renamed
+// file may already be visible even though power-loss durability is unconfirmed.
 func AtomicWrite(path string, data []byte, perm os.FileMode) error {
 	path = strings.TrimSpace(path)
 	if path == "" {
@@ -162,13 +190,26 @@ func AtomicWrite(path string, data []byte, perm os.FileMode) error {
 		_ = tmp.Close()
 		return err
 	}
+	if err := tmp.Sync(); err != nil {
+		_ = tmp.Close()
+		return err
+	}
 	if err := tmp.Close(); err != nil {
 		return err
 	}
 	if err := os.Rename(tmpPath, path); err != nil {
 		return err
 	}
-	return os.Chmod(path, perm)
+	directory, err := os.Open(filepath.Dir(path))
+	if err != nil {
+		return err
+	}
+	syncErr := directory.Sync()
+	closeErr := directory.Close()
+	if syncErr != nil {
+		return syncErr
+	}
+	return closeErr
 }
 
 // FileArtifact returns a safe artifact record for one generated file.

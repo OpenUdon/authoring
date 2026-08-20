@@ -5,9 +5,9 @@ import (
 	"encoding/json"
 	"errors"
 	"slices"
-	"strings"
 
 	"github.com/OpenUdon/authoring/decision"
+	"github.com/OpenUdon/authoring/internal/cancellation"
 	"github.com/OpenUdon/authoring/internal/norm"
 	"github.com/OpenUdon/authoring/internal/records"
 	"github.com/OpenUdon/authoring/readiness"
@@ -313,8 +313,7 @@ func emptyTranscriptMetadata(metadata TranscriptMetadata) bool {
 
 func isCanceled(err error) bool {
 	return errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) ||
-		strings.Contains(strings.ToLower(err.Error()), "canceled") ||
-		strings.Contains(strings.ToLower(err.Error()), "cancelled")
+		errors.Is(err, cancellation.ErrCanceled)
 }
 
 func nonnegative(value int) int {

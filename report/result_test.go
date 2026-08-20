@@ -2,10 +2,12 @@ package report
 
 import (
 	"context"
+	"errors"
 	"strings"
 	"testing"
 
 	"github.com/OpenUdon/authoring/decision"
+	"github.com/OpenUdon/authoring/internal/cancellation"
 	"github.com/OpenUdon/authoring/readiness"
 	"github.com/OpenUdon/authoring/session"
 	"github.com/OpenUdon/authoring/transcript"
@@ -61,6 +63,12 @@ func TestStatusForCancellation(t *testing.T) {
 	}
 	if StatusForError(context.DeadlineExceeded) != StatusCanceled {
 		t.Fatalf("deadline status = %q", StatusForError(context.DeadlineExceeded))
+	}
+	if StatusForError(errors.New("operation canceled by policy lookalike")) != StatusFailed {
+		t.Fatalf("cancellation lookalike was classified as canceled")
+	}
+	if StatusForError(errors.Join(errors.New("wrapped"), cancellation.ErrCanceled)) != StatusCanceled {
+		t.Fatalf("shared cancellation sentinel was not classified as canceled")
 	}
 }
 

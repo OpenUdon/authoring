@@ -5,6 +5,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/OpenUdon/authoring/session"
@@ -15,6 +16,18 @@ import (
 
 type draftBody struct {
 	Name string `json:"name"`
+}
+
+type pointerValidatedDraft struct {
+	Sensitive bool   `json:"sensitive,omitempty"`
+	Value     string `json:"value,omitempty"`
+}
+
+func (draft *pointerValidatedDraft) ValidateForPersistence() error {
+	if draft != nil && draft.Sensitive {
+		return errors.New("draft contains unredacted sensitive data")
+	}
+	return nil
 }
 
 func TestDraftLifecycleSaveLoadAutosaveDelete(t *testing.T) {
@@ -80,6 +93,32 @@ func TestAtomicWriteOverwritesPermissions(t *testing.T) {
 	}
 	if got := info.Mode().Perm(); got != 0o600 {
 		t.Fatalf("file permissions = %o, want 0600", got)
+	}
+}
+
+func TestDraftPersistenceRejectsUnredactedSensitiveState(t *testing.T) {
+	secret := "never-include-secret"
+	state := session.State{Answers: []session.Answer{{Slot: "credential", Value: secret, Sensitive: true}}}
+	path := filepath.Join(t.TempDir(), "draft.json")
+	err := SaveDraft(path, Draft[draftBody]{Draft: draftBody{Name: "draft"}, Session: &state})
+	if err == nil || strings.Contains(err.Error(), secret) {
+		t.Fatalf("unredacted draft error = %v", err)
+	}
+	state.Answers[0].Redacted = true
+	if err := SaveDraft(path, Draft[draftBody]{Draft: draftBody{Name: "draft"}, Session: &state}); err != nil {
+		t.Fatalf("redacted draft rejected: %v", err)
+	}
+}
+
+func TestDraftPersistenceUsesPointerReceiverValidator(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "draft.json")
+	secret := "never-write-this-value"
+	err := SaveDraft(path, Draft[pointerValidatedDraft]{Draft: pointerValidatedDraft{Sensitive: true, Value: secret}})
+	if err == nil || strings.Contains(err.Error(), secret) {
+		t.Fatalf("pointer-receiver validator error = %v", err)
+	}
+	if _, statErr := os.Stat(path); !errors.Is(statErr, fs.ErrNotExist) {
+		t.Fatalf("unsafe draft was persisted: %v", statErr)
 	}
 }
 
