@@ -21,14 +21,13 @@ model-provider clients, live execution, governance, state, or reconciliation.
 - `prompt`: local prompting, default modes, replay scripts, and prompt
   transcripts.
 - `lifecycle`: draft envelopes, atomic writes, autosave, and artifact helpers.
-- `operationlifecycle`: conservative API operation lifecycle sibling
-  expansion over prompt-safe context.
 - `structured`: provider-neutral structured JSON completion and legacy JSON
   fallback.
-- `icot`: generic progressive and interactive iCoT loops, lifecycle hooks, and
-  bound-runtime interfaces.
+- `icot`: generic progressive and interactive iCoT loops, interview bindings,
+  lifecycle hooks, semantic progress detection, and bound-runtime interfaces.
 - `interview`: `authoring.interview.v1` dependency graphs, unified evidence,
-  answers, deferrals, validation, status transitions, and ready frontiers.
+  answers, deferrals, atomic frontier settlement, validation, status
+  transitions, and ready frontiers.
 - `icotcli`: shared iCoT CLI flag plumbing and prompt/model label helpers.
 - `readiness`: readiness summaries, blocking/warning sorting, and question
   planning.
@@ -43,7 +42,9 @@ Authoring is intentionally upstream of products. It imports Evidence for
 neutral trust primitives and must not import OpenUdon, Ramen, UWS, or API-source
 packages. Downstream adapters translate product metadata into Authoring
 contracts and own product prompts, validation, artifacts, credentials, model
-clients, execution, and state.
+clients, execution, and state. API operation lifecycle ranking belongs to
+`github.com/OpenUdon/apitools/operationlifecycle`, where it consumes
+`apitools.OperationSummary` and source provenance directly.
 
 Default tests and examples use fake runtimes and fake clients only. They do not
 require credentials, model providers, API calls, workflow execution,
@@ -87,13 +88,13 @@ The two iCoT adapters share generic Authoring context and loop mechanics:
 
 - prompt sessions, default modes, answer replay, and transcript records
 - dependency-ready frontier rounds, one normalization/autosave after applying
-  each complete answer set, three-round no-progress diagnosis, and final
-  confirmation flow
+  each complete answer set, atomic interview settlement, semantic progress
+  fingerprints, a configurable emergency round fuse, three-round no-progress
+  diagnosis, and final confirmation flow
 - readiness issue and interactive question shapes with one forced flag, one
   recommendation, priority, concise rationale, and evidence references
 - decision evidence normalization and confirmation policy
 - prompt-safe source, operation, schema, and credential-alternative context records
-- conservative lifecycle sibling expansion for selected API operations
 - agent result, diagnostic, artifact, metadata, and scorecard report shapes
 - common CLI flags for prompt mode, no-LLM, model labels, answers, reports, and
   transcripts

@@ -7,7 +7,6 @@ import (
 
 	"github.com/OpenUdon/authoring/interview"
 	"github.com/OpenUdon/authoring/lifecycle"
-	"github.com/OpenUdon/authoring/operationlifecycle"
 	"github.com/OpenUdon/authoring/prompt"
 	"github.com/OpenUdon/authoring/promptcontext"
 	"github.com/OpenUdon/authoring/report"
@@ -45,10 +44,8 @@ func TestDurableContractJSONTags(t *testing.T) {
 		reflect.TypeOf(interview.Evidence{}),
 		reflect.TypeOf(interview.Deferral{}),
 		reflect.TypeOf(interview.Answer{}),
+		reflect.TypeOf(interview.Resolution{}),
 		reflect.TypeOf(lifecycle.Draft[map[string]string]{}),
-		reflect.TypeOf(operationlifecycle.Expansion{}),
-		reflect.TypeOf(operationlifecycle.RoleCandidate{}),
-		reflect.TypeOf(operationlifecycle.Diagnostic{}),
 		reflect.TypeOf(prompt.PromptTranscript{}),
 		reflect.TypeOf(prompt.ReplayScript{}),
 		reflect.TypeOf(promptcontext.Context{}),

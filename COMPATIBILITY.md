@@ -12,7 +12,6 @@ The public package groups are behavior-based:
 - `transcript`: durable transcript turns, events, and model provenance.
 - `prompt`: local prompt modes, replay scripts, and prompt transcripts.
 - `lifecycle`: draft persistence, atomic writes, and artifact helpers.
-- `operationlifecycle`: prompt-safe lifecycle operation sibling expansion.
 - `structured`: provider-neutral structured JSON completion helpers.
 - `icot`: progressive loop and bound-runtime interfaces.
 - `interview`: dependency-aware interview graph and unified evidence records.
@@ -62,6 +61,19 @@ the expected migration path is:
 3. Run OpenUdon and Ramen dependent tests from the parent workspace.
 4. Update product adapters without changing product JSON versions unless a
    separate product migration explicitly requires it.
+
+Readiness compatibility aliases are write-through normalized: all aliases
+reflect the durable `forced` and `recommendation` values after normalization,
+and `DefaultSource` is always `"recommendation"`. `icot.Result.Answers` holds
+the most recently collected round: it is partial when returning `needs_input`
+and otherwise contains the last successfully applied round.
+
+The move of API lifecycle ranking from
+`github.com/OpenUdon/authoring/operationlifecycle` to
+`github.com/OpenUdon/apitools/operationlifecycle` is an intentional pre-1.0
+source-breaking boundary correction. Consumers pass `apitools.OperationSummary`
+records and retain API-source provenance; no Authoring durable JSON version
+changed for this move.
 
 The reusable gate is:
 
