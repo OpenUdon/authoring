@@ -17,9 +17,9 @@ D01, D02, D03, ...
 Task/status files use the lane ID:
 
 ```text
-memory-bank/status-M01.md
-memory-bank/status-M02.md
-memory-bank/status-M22.md
+tabilet/memory-bank/status-M01.md
+tabilet/memory-bank/status-M02.md
+tabilet/memory-bank/status-M22.md
 ```
 
 Lane meanings:
@@ -59,7 +59,7 @@ relocation are complete and published. OpenUdon and Ramen pin the coordinated
 revisions and pass downstream standalone checks.
 The repository exists
 as a public Go module scaffold, and
-`AGENTS.md`, `memory-bank/`, and `evolution/` are symlink-facing paths to the
+`AGENTS.md`, `tabilet/memory-bank/`, and `tabilet/evolution/` are symlink-facing paths to the
 tracked snapshot under `../tofu/authoring`.
 
 The key architectural decision remains the UWS-style bound-runtime model:
@@ -209,9 +209,9 @@ model, and baseline commands.
 
 Acceptance:
 
-- `AGENTS.md`, `memory-bank/product.md`, `memory-bank/architecture.md`,
-  `memory-bank/tech-stack.md`, `memory-bank/milestone.md`, and
-  `memory-bank/status-M01.md` exist through the tracked snapshot.
+- `AGENTS.md`, `tabilet/memory-bank/product.md`, `tabilet/memory-bank/architecture.md`,
+  `tabilet/memory-bank/tech-stack.md`, `tabilet/memory-bank/milestone.md`, and
+  `tabilet/memory-bank/status-M01.md` exist through the tracked snapshot.
 - The root checkout has the same symlink-facing harness pattern used by Ramen.
 - `go.mod` exists with module path `github.com/OpenUdon/authoring`.
 - Documentation states that Authoring owns shared orchestration while OpenUdon
