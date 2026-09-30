@@ -153,6 +153,9 @@ Build Authoring in provider-free, model-free slices:
 30. `M28`: move API operation lifecycle ranking to apitools and migrate both
     downstream adapters before removing Authoring's package.
 
+31. `M29`: additive neutral engine extraction for OpenUdon Stage 5, retaining
+    the old iCoT API and Ramen compatibility.
+
 ## Status Files
 
 | Milestone | Status File | Summary |
@@ -187,6 +190,7 @@ Build Authoring in provider-free, model-free slices:
 | I01 | [status-I01.md](status-I01.md) | Interview, transcript, prompt, and iCoT integrity. |
 | D01 | [status-D01.md](status-D01.md) | Persistence and report hardening. |
 | M28 | [status-M28.md](status-M28.md) | API lifecycle-ranking boundary relocation. |
+| M29 | [status-M29.md](status-M29.md) | Neutral engine and source-compatible iCoT facade; pending. |
 
 ## Candidate Directions
 
@@ -724,3 +728,45 @@ Acceptance:
   summaries and pass their full/focused suites.
 - Authoring removes its old package, README/compatibility/API-surface entries,
   and retains no import of apitools.
+
+### M29 Neutral engine with compatible iCoT facade
+
+**Goal.** Expose Authoring's existing generic progressive, interactive, runtime,
+repair and atomic interview mechanics through `github.com/OpenUdon/authoring/engine`.
+Keep one implementation and preserve the existing `authoring/icot` public API
+using type aliases and forwarding functions. This is additive extraction;
+Authoring iCoT/icotcli retirement remains deferred.
+
+**Dependencies.** Completed I01, D01 and M28; published baseline
+`b417eb681746476cca80bdb14cde3e3c96de980c`. OpenUdon M91.1 inventory is
+approved and M91.2 is complete at `1a2570232cdbe8cafecda7e580f91b8a2af12746`.
+
+**Tasks.** M29.1 relocate the existing generic implementation and regression
+suite into neutral engine ownership; M29.2 preserve all old exported names,
+types, constants, sentinel identity and functions through the compatibility
+facade; M29.3 prove atomic-interview, prompt/transcript, no-progress/cancellation,
+repair and downstream parity; M29.4 bounded deep review, exact source/module
+publication and OpenUdon reconciliation.
+
+**Acceptance.** No duplicated controller or interview transaction; neutral
+engine has no direct or transitive `authoring/icot` import. Old APIs compile
+with identical signatures and remain usable by unchanged OpenUdon and Ramen.
+Prompt/error wording, JSON tags and durable versions, safety and state transitions
+remain unchanged. Workspace and standalone full tests/vet, race tests, import
+boundary, source/fixture equivalence, compatibility script, OpenUdon scorecard
+and downstream tests pass. Use fake providers and disposable local fixtures.
+Persist a maximum-ten-iteration closing review and publish the exact verified
+revision/module before consumer adoption. Keep completed records in the local
+ledger under its existing convention; no new retirement convention is introduced.
+
+**Downstream.** Published M29 precedes resumed OpenUdon M91.3; OpenUdon adopts
+its exact module revision and qualifies M91 before M92. Kinet W08 consumes that
+engine transitively through qualified OpenUdon. Ramen retains its old import and
+receives compatibility verification only; no Ramen source/ledger action is included.
+
+**Authority.** User approved the complete prerequisite proposal, extended the
+current Kinet GOAL run and authorized Authoring publication on 2026-09-30.
+`COMMIT_POLICY: task`; normal scoped fast-forward pushes to Authoring
+`origin/main` (`git@github.com-tabilet:OpenUdon/authoring.git`) follow the
+execution owner's recorded exact-diff/remote/checks policy. No live model,
+account operation, deployment, UI retirement or new wire semantics.
