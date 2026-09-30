@@ -187,3 +187,11 @@ The reusable compatibility gate is:
   explicitly narrows that exception.
 - Keep default tests provider-free, model-free, executor-free, and
   credential-free. Use fake runtimes and fake structured clients.
+
+## M29 neutral engine and compatibility facade
+
+The new public import is `github.com/OpenUdon/authoring/engine`. Existing
+`github.com/OpenUdon/authoring/icot` APIs remain available as aliases/forwarders.
+Generic aliases use the existing Go 1.26.3 directive; no dependency was added.
+Focused checks use `go test ./engine ./icot`; full workspace and standalone
+checks, race and downstream compatibility are required before publication.

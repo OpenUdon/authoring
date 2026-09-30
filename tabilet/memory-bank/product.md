@@ -136,3 +136,10 @@ chronology, rejects unredacted sensitive persistence, and uses a configurable
 1,000-round emergency fuse. The roadmap
 expands the original M02-M06 sketch while keeping OpenUdon and Ramen product
 semantics downstream.
+
+## M29 neutral engine extraction
+
+The generic controller and atomic interview binding now live in `engine`.
+The existing `icot` import delegates to that implementation and remains usable
+by old consumers. Product prompts, artifact semantics and execution policy
+remain downstream; full compatibility and publication acceptance are pending.

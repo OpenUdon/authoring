@@ -272,3 +272,12 @@ package.
   helpers come from Evidence where the record is shared across products.
 - Noninteractive agent results must distinguish `complete`, `needs_input`,
   `failed`, and `canceled` without implying product-specific remediation.
+
+## M29 additive engine ownership
+
+`engine` now owns the relocated generic progressive, interactive, bound-runtime,
+repair and atomic interview implementation. `icot` provides type aliases and
+forwarding functions to the same implementation, without reverse imports. The
+relocation preserves function bodies and durable wire behavior. Reflection sees
+the concrete types' new package ownership; no JSON field or envelope changes.
+Old consumers remain supported; retirement is a separate deferred decision.
