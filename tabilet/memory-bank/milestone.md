@@ -190,7 +190,7 @@ Build Authoring in provider-free, model-free slices:
 | I01 | [status-I01.md](status-I01.md) | Interview, transcript, prompt, and iCoT integrity. |
 | D01 | [status-D01.md](status-D01.md) | Persistence and report hardening. |
 | M28 | [status-M28.md](status-M28.md) | API lifecycle-ranking boundary relocation. |
-| M29 | [status-M29.md](status-M29.md) | Neutral engine and source-compatible iCoT facade; pending. |
+| M29 | [status-M29.md](status-M29.md) | Neutral engine and compatible facade; qualification/review passed, publication pending. |
 
 ## Candidate Directions
 
