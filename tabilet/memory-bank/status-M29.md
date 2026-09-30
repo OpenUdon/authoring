@@ -1,6 +1,6 @@
 # Status M29 — Neutral engine and compatible iCoT facade
 
-State: M29.1/M29.2 complete; verification pending.
+State: M29.1–M29.3 complete; closing review/publication pending.
 
 ## Goal and dependencies
 
@@ -15,7 +15,7 @@ This package owns M29; Kinet coordinates the goal without merging ledgers.
 | --- | --- | --- |
 | M29.1 Neutral implementation extraction | `[+]` | Relocate generic loop, interactive/runtime/repair and atomic-binding implementation and regression tests; preserve bodies and wire/safety behavior. |
 | M29.2 Compatible iCoT facade | `[+]` | Retain every exported old name through type aliases/forwarders and shared sentinel identity; no second controller. |
-| M29.3 Compatibility and contract verification | `[ ]` | Workspace/standalone full test/vet, race, dependency boundary, parity, unchanged OpenUdon/Ramen consumers and OpenUdon scorecard. |
+| M29.3 Compatibility and contract verification | `[+]` | Workspace/standalone full test/vet, race, dependency boundary, parity, unchanged OpenUdon/Ramen consumers and OpenUdon scorecard. |
 | M29.4 Review, publication and downstream handoff | `[ ]` | Persist bounded deep review, qualified source/module and exact-diff publication; reconcile OpenUdon M91.3 before resumption. |
 
 ## Verification and acceptance
@@ -76,3 +76,31 @@ Full workspace tests and diff checks pass; log
 runtime wrongly asserted as `any`, and an extra blank input before a forced
 prompt) were corrected against the unchanged actual API; implementation bodies
 remain identical. M29.3 still owns full cross-package/standalone/race gates.
+
+## M29.3 completed — compatibility qualification
+
+Qualified implementation source: `18056cb6b0c1007dd567a4a825a6b4311a357185`.
+All 66 old exported declarations/function signatures match the exact published
+baseline. All 12 moved implementation/regression bodies remain identical
+apart from package-name/doc normalization; durable versions and tracked fixture
+bytes were not modified.
+
+`./scripts/check-compat.sh` passed Authoring workspace/standalone full tests/vet,
+import boundaries, OpenUdon full tests and Ramen full tests (including its
+320-second corpus package). Full Authoring race tests, separate standalone vet,
+APItools full tests and OpenUdon's 103-pass/zero-failure scorecard and report
+verification pass. Logs are `/tmp/authoring-m29-3-compat.log`,
+`/tmp/authoring-m29-3-race.log`, `/tmp/authoring-m29-3-standalone-vet.log`,
+`/tmp/apitools-m29-3-compat.log`, `/tmp/openudon-m29-3-scorecard.log`.
+
+Frozen compatibility evidence:
+`/var/tmp/authoring-m29-compat-0w5o3ztc/manifest.json` binds exact Authoring,
+OpenUdon and Ramen source/archive hashes, consumer module metadata, toolchain
+and completed log digests. Frozen Authoring full test/vet, OpenUdon full tests
+and Ramen's affected authoring package pass with GOWORK off, GOPROXY off and
+only Authoring replaced by its frozen source; other consumer pins are unchanged.
+The installed Go 1.26.6 binary is used explicitly for consumer checks (the
+initial wrapper invocation refused its checksum configuration before testing).
+No mutable sibling substitution or model/runtime account operation qualified
+this source. Ramen and APItools source/ledgers remain unchanged. Closing review
+and exact publication remain M29.4 work.
