@@ -13,7 +13,8 @@ The public package groups are behavior-based:
 - `prompt`: local prompt modes, replay scripts, and prompt transcripts.
 - `lifecycle`: draft persistence, atomic writes, and artifact helpers.
 - `structured`: provider-neutral structured JSON completion helpers.
-- `icot`: progressive loop and bound-runtime interfaces.
+- `engine`: progressive loops, atomic interview binding and bound-runtime interfaces.
+- `icot`: compatible aliases and forwarders to the neutral engine.
 - `interview`: dependency-aware interview graph and unified evidence records.
 - `readiness`: readiness summaries and question planning.
 - `decision`: decision evidence and confidence policy.
@@ -80,3 +81,15 @@ The reusable gate is:
 ```bash
 ./scripts/check-compat.sh
 ```
+
+## Additive neutral engine (M29)
+
+New consumers may import `github.com/OpenUdon/authoring/engine`. Existing
+`authoring/icot` type names, generic signatures, methods, constants, sentinel
+values and entry points remain available over that one implementation. No JSON
+shape/version, prompt/error wording or approval/state-transition behavior changes.
+Type aliases share concrete identity across the two imports. Reflection's
+`PkgPath` reports the new `engine` ownership; persistence must use explicit
+versioned JSON contracts, not Go package identity. Exported error sentinels retain
+their initial shared identity and should not be reassigned by consumers.
+Authoring iCoT/icotcli retirement is a separate deferred decision.

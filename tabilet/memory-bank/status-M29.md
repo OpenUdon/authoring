@@ -1,6 +1,6 @@
 # Status M29 — Neutral engine and compatible iCoT facade
 
-State: M29.1 complete; later rows pending.
+State: M29.1/M29.2 complete; verification pending.
 
 ## Goal and dependencies
 
@@ -14,7 +14,7 @@ This package owns M29; Kinet coordinates the goal without merging ledgers.
 | Item | State | Notes |
 | --- | --- | --- |
 | M29.1 Neutral implementation extraction | `[+]` | Relocate generic loop, interactive/runtime/repair and atomic-binding implementation and regression tests; preserve bodies and wire/safety behavior. |
-| M29.2 Compatible iCoT facade | `[ ]` | Retain every exported old name through type aliases/forwarders and shared sentinel identity; no second controller. |
+| M29.2 Compatible iCoT facade | `[+]` | Retain every exported old name through type aliases/forwarders and shared sentinel identity; no second controller. |
 | M29.3 Compatibility and contract verification | `[ ]` | Workspace/standalone full test/vet, race, dependency boundary, parity, unchanged OpenUdon/Ramen consumers and OpenUdon scorecard. |
 | M29.4 Review, publication and downstream handoff | `[ ]` | Persist bounded deep review, qualified source/module and exact-diff publication; reconcile OpenUdon M91.3 before resumption. |
 
@@ -59,3 +59,20 @@ internal authoring/elicitor/iCoT and Ramen authoring suites pass. Logs:
 `/tmp/authoring-m29-1-vet.log`, `/tmp/openudon-m29-1-alias.log`,
 `/tmp/ramen-m29-1-alias.log`. M29.2 still owns exhaustive facade compatibility
 and documentation; M29.3/full downstream and M29.4 acceptance remain pending.
+
+## M29.2 completed
+
+The facade retains all exported pre-extraction declarations and forwards calls
+without a second loop. Compile-time checks cross generic hook/runtime/repair
+signatures; facade tests prove concrete type identity, shared error sentinels,
+loop success/needs-input/cancellation parity, and exact prompt output/turn parity.
+The dependency test rejects any neutral-engine dependency on the facade.
+README, package docs and compatibility policy describe the additive API and
+reflection ownership caveat. Durable persistence continues to use explicit
+wire versions rather than Go reflection package identity.
+
+Full workspace tests and diff checks pass; log
+`/tmp/authoring-m29-2-compat-fixed.log`. Initial test-only mistakes (a typed
+runtime wrongly asserted as `any`, and an extra blank input before a forced
+prompt) were corrected against the unchanged actual API; implementation bodies
+remain identical. M29.3 still owns full cross-package/standalone/race gates.

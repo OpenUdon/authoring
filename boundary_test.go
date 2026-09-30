@@ -30,3 +30,16 @@ func TestImportBoundaryExcludesProductModules(t *testing.T) {
 		}
 	}
 }
+
+func TestNeutralEngineDoesNotDependOnCompatibilityFacade(t *testing.T) {
+	cmd := exec.Command("go", "list", "-deps", "./engine")
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("engine dependencies: %v\n%s", err, output)
+	}
+	for _, dependency := range strings.Fields(string(output)) {
+		if dependency == "github.com/OpenUdon/authoring/icot" || strings.HasPrefix(dependency, "github.com/OpenUdon/authoring/icot/") {
+			t.Fatalf("neutral engine depends on compatibility implementation: %s", dependency)
+		}
+	}
+}

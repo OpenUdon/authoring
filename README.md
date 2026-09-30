@@ -23,8 +23,10 @@ model-provider clients, live execution, governance, state, or reconciliation.
 - `lifecycle`: draft envelopes, atomic writes, autosave, and artifact helpers.
 - `structured`: provider-neutral structured JSON completion and legacy JSON
   fallback.
-- `icot`: generic progressive and interactive iCoT loops, interview bindings,
-  lifecycle hooks, semantic progress detection, and bound-runtime interfaces.
+- `engine`: generic progressive and interactive loops, atomic interview bindings,
+  lifecycle hooks, semantic progress detection, repair and bound-runtime interfaces.
+- `icot`: source-compatible aliases and forwarders to `engine`; old consumers
+  remain supported.
 - `interview`: `authoring.interview.v1` dependency graphs, unified evidence,
   answers, deferrals, atomic frontier settlement, validation, status
   transitions, and ready frontiers.
