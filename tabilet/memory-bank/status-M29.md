@@ -1,6 +1,6 @@
 # Status M29 — Neutral engine and compatible iCoT facade
 
-State: M29.1–M29.3 complete; M29.4 closing review/publication in progress.
+State: Complete; accepted and source/module publication verified.
 
 ## Goal and dependencies
 
@@ -16,7 +16,7 @@ This package owns M29; Kinet coordinates the goal without merging ledgers.
 | M29.1 Neutral implementation extraction | `[+]` | Relocate generic loop, interactive/runtime/repair and atomic-binding implementation and regression tests; preserve bodies and wire/safety behavior. |
 | M29.2 Compatible iCoT facade | `[+]` | Retain every exported old name through type aliases/forwarders and shared sentinel identity; no second controller. |
 | M29.3 Compatibility and contract verification | `[+]` | Workspace/standalone full test/vet, race, dependency boundary, parity, unchanged OpenUdon/Ramen consumers and OpenUdon scorecard. |
-| M29.4 Review, publication and downstream handoff | `[~]` | Persist bounded deep review, qualified source/module and exact-diff publication; reconcile OpenUdon M91.3 before resumption. |
+| M29.4 Review, publication and downstream handoff | `[+]` | Persist bounded deep review, qualified source/module and exact-diff publication; reconcile OpenUdon M91.3 before resumption. |
 
 ## Verification and acceptance
 
@@ -119,3 +119,27 @@ Qualified implementation remains `18056cb6b0c1007dd567a4a825a6b4311a357185`;
 qualification manifest SHA-256 `e15cb0cfb36d7c8f62223c89aa3fb08b102c92672565d38de495bae3f75e73d0`. M29.4 is in progress for scoped
 publication and exact downstream handoff. This passed review does not imply
 that a remote or consumer was already updated.
+
+## M29.4 completed — accepted producer and publication
+
+Qualified/accepted implementation source:
+`18056cb6b0c1007dd567a4a825a6b4311a357185`.
+Verified source/qualification/review publication:
+`2a929b7686af5710db7a1600dcc1f2d27f6e388d` at origin/main.
+Published module: `v0.0.0-20260930234600-18056cb6b0c1`, observed exact
+Origin.Hash in the qualification root's `published-module.json`.
+
+Outgoing range was independently checked against actual remote
+`b417eb681746476cca80bdb14cde3e3c96de980c`; exact patch SHA-256
+`8b1783a4657f7e13bfffccd4495e530fedee0a0ab0748ae3cd24f5d33a746336`.
+Publication review/range/patch/stat are retained at
+`/var/tmp/authoring-m29-publication-2a929b7686af/`. Only approved M29 changes
+were pushed normally to the authorized origin; no force, tag or deployment.
+
+OpenUdon M91 is reconciled to this exact producer source/module and review/
+qualification evidence before resumption. M91.3 owns consumer pinning;
+Authoring provides one implementation with old API compatibility. Ramen source/
+ledger and all completed historical records remain unchanged. All four rows
+and required verification are complete; review passed 1/10. This repository's
+existing completed-status convention keeps this full accepted record active.
+The final substantive closure record follows the same scoped publication policy.
