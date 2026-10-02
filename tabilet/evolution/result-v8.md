@@ -1,0 +1,7 @@
+# Result V8 — Facade retirement planning baseline
+
+Revalidated 2026-10-02 at `dc8f3d61970ae628fc0399b0ef42187aa62a3e5b`, including uncommitted M30 planning drafts. [M29](../memory-bank/status-M29.md) has delivered the neutral engine and compatible facade; both `icot` and `icotcli` still exist. [Compatibility policy](../../COMPATIBILITY.md) and `scripts/check-compat.sh` still require workspace Ramen compatibility. No M30 implementation is delivered.
+
+The [v8 direction](prompt-v8.md) approves an intentional pre-1.0 source-break exception while retaining frozen Ramen at Authoring `v0.0.0-20260820042256-2f73e3526583`. Its unchanged standalone build passed offline with installed Go 1.26.7, GOWORK=off and readonly module resolution. Kinet imports lifecycle/session; OpenUdon uses the neutral engine. New-Authoring consumer equivalence remains a pending M30 qualification gate, using temporary overrides and exact resolution evidence without changing their manifests or operator go.work.
+
+All four [M30 rows](../memory-bank/status-M30.md) stay pending; closing review is 0/10. M30.1 records consumer inventory and the frozen compatibility exception; .2 removes facade/update docs; .3 qualifies neutral behavior and consumers; .4 reviews and hands off exact accepted source. Publication needs a separate request. No new source or release revision is invented. Kinet's launcher coordinates a serial owner but does not replace Authoring's instructions or ledger.

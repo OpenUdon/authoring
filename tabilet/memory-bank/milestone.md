@@ -56,7 +56,9 @@ M25 adaptive evidence-grounded frontier authoring, M26 parallel-lane harness
 migration, and M27 security-alternative prompt context. I01 interview/session
 integrity, D01 persistence/report hardening, and M28 lifecycle-ranking boundary
 relocation are complete and published. OpenUdon and Ramen pin the coordinated
-revisions and pass downstream standalone checks.
+revisions and pass downstream standalone checks. M29 added the neutral engine
+with the compatible iCoT facade. M30, approved for planning on 2026-10-02 and
+pending, retires that facade with Ramen frozen at its pinned Authoring.
 The repository exists
 as a public Go module scaffold, and
 `AGENTS.md`, `tabilet/memory-bank/`, and `tabilet/evolution/` are symlink-facing paths to the
@@ -155,6 +157,8 @@ Build Authoring in provider-free, model-free slices:
 
 31. `M29`: additive neutral engine extraction for OpenUdon Stage 5, retaining
     the old iCoT API and Ramen compatibility.
+32. `M30`: retire the `icot`/`icotcli` compatibility facade with Ramen frozen
+    at its pinned Authoring revision.
 
 ## Status Files
 
@@ -191,6 +195,7 @@ Build Authoring in provider-free, model-free slices:
 | D01 | [status-D01.md](status-D01.md) | Persistence and report hardening. |
 | M28 | [status-M28.md](status-M28.md) | API lifecycle-ranking boundary relocation. |
 | M29 | [status-M29.md](status-M29.md) | Complete: neutral engine, retained iCoT facade and verified publication. |
+| M30 | [status-M30.md](status-M30.md) | Pending: retire the iCoT facade; Ramen frozen at its pinned Authoring. |
 
 ## Candidate Directions
 
@@ -770,3 +775,80 @@ current Kinet GOAL run and authorized Authoring publication on 2026-09-30.
 `origin/main` (`git@github.com-tabilet:OpenUdon/authoring.git`) follow the
 execution owner's recorded exact-diff/remote/checks policy. No live model,
 account operation, deployment, UI retirement or new wire semantics.
+
+### M30 Retire the iCoT compatibility facade
+
+**Goal.** Remove `authoring/icot` and `authoring/icotcli`, the compatible facade
+over `authoring/engine` that M29 introduced, so Authoring keeps one neutral
+implementation and no iCoT-named public surface.
+
+**Provenance.** Kinet Stage 6 (STG-06), approved for planning by the user on
+2026-10-02 (Kinet decision R58; coordination in Kinet
+`docs/kinet-order.md`, "Stage 6 approved plan"). Planning baseline: Authoring
+`dc8f3d61970ae628fc0399b0ef42187aa62a3e5b`, clean worktree. This milestone
+promotes the deferred "Authoring iCoT/icotcli retirement" decision recorded by
+M29 and `COMPATIBILITY.md`; it reopens no completed milestone.
+
+**Dependencies.** Complete M29. Ramen is frozen at its pinned Authoring
+`v0.0.0-20260820042256-2f73e3526583` and is neither updated nor coded; the
+approved planning exception intentionally ends compatibility with current
+workspace Authoring for those imports. Ramen has not dropped the dependency;
+it retains the old pin and is checked separately. This exception supersedes
+the earlier migration/drop trigger for M30 only. OpenUdon has no
+`authoring/icot` or `authoring/icotcli` import in its dependency graph, Kinet
+imports only `session` and `lifecycle`, and W8M imports neither (verified by
+search at planning time; re-verify in M30.1).
+
+**Tasks.** M30.1 record the consumer inventory and the Ramen-frozen decision,
+re-verifying imports across OpenUdon, Kinet, W8M and every workspace module and
+checking Ramen at its pin read-only; M30.2 remove the two packages and their
+tests, API-surface, README, COMPATIBILITY, architecture and compatibility-script
+references, and update AGENTS/product/tech-stack current descriptions when the
+removal is implemented; M30.3 qualify Authoring and its unchanged consumers; M30.4 bounded
+deep review and downstream handoff.
+
+**Acceptance.** `authoring/icot` and `authoring/icotcli` no longer exist. The
+neutral `authoring/engine` and every other public package keep their names,
+signatures, JSON tags, durable versions, prompt and transcript bytes, safety and
+state behavior; no new import or dependency is added and `engine` still has no
+import of a downstream product. The retirement is recorded as an intentional
+pre-1.0 source break for consumers of the removed packages, and
+`scripts/check-compat.sh` and the import-boundary tests no longer require Ramen
+to build against workspace Authoring. Standalone and workspace full tests and
+vet, and race tests, pass. Use a temporary workspace or temporary modfile
+override binding the exact new Authoring source into unchanged OpenUdon and
+Kinet; include Kinet explicitly because its normal Makefile uses GOWORK=off.
+Record the effective Authoring directory/revision for each consumer check;
+normal checks against older pins do not establish this gate. No consumer
+manifest or operator go.work edit is permitted. OpenUdon and Kinet build and
+pass their affected checks against the new Authoring without edits. Ramen at its frozen pin is
+verified read-only (for example a build with `GOWORK=off`); if that module
+cannot be resolved with the available cache, record the evidence gap rather than
+altering Ramen. `~/Workspace/go.work` still lists `./ramen`, so Ramen will stop
+building in that workspace after M30; updating or excluding it is a user action
+this milestone does not perform.
+
+**Verification.** Fake providers and disposable local fixtures; no live model,
+account or network service. Record exact source revisions and commands.
+
+**Downstream.** None required: Kinet and OpenUdon do not import the removed
+packages. OpenUdon's remaining legacy ICOT-named identifiers stay an
+OpenUdon-owned handoff, and Kinet moves its Authoring pin only if it chooses to.
+
+**Reconciliation provenance.** Stage 6 planning handoff reconciliation F04/F06,
+source priority and external review baseline not supplied, local P2. Revalidated
+at Authoring `dc8f3d61970ae628fc0399b0ef42187aa62a3e5b`, including uncommitted
+M30 planning drafts. Evidence: `COMPATIBILITY.md`, `scripts/check-compat.sh`,
+Ramen's `go.mod`/iCoT imports and Kinet's standalone Makefile. The unchanged
+Ramen standalone build passed with cached dependencies and Go 1.26.7,
+GOWORK=off and readonly module resolution. Original clean baseline wording
+refers to the pre-draft snapshot. The user approved these amendments on
+2026-10-02. The review counter stays 0/10; no implementation is accepted.
+See [prompt v8](../evolution/prompt-v8.md) and [current state v8](../evolution/result-v8.md).
+The intentional source-break exception replaces M29's earlier migration
+condition without reopening M29 or changing its historical evidence.
+
+**Authority.** Planning approval only. Execution needs a separate request that
+names its commit policy; planning grants no commit, push, tag or module
+publication. No Ramen, udon-ui, W8M or other sibling edit; Ramen is read-only
+evidence.
