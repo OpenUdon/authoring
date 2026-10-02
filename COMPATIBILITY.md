@@ -14,7 +14,6 @@ The public package groups are behavior-based:
 - `lifecycle`: draft persistence, atomic writes, and artifact helpers.
 - `structured`: provider-neutral structured JSON completion helpers.
 - `engine`: progressive loops, atomic interview binding and bound-runtime interfaces.
-- `icot`: compatible aliases and forwarders to the neutral engine.
 - `interview`: dependency-aware interview graph and unified evidence records.
 - `readiness`: readiness summaries and question planning.
 - `decision`: decision evidence and confidence policy.
@@ -59,13 +58,14 @@ the expected migration path is:
 
 1. Update Authoring.
 2. Run Authoring tests, vet, and import-boundary checks.
-3. Run OpenUdon and Ramen dependent tests from the parent workspace.
+3. Qualify unchanged OpenUdon and Kinet with temporary exact-source overrides;
+   separately qualify frozen Ramen standalone at its old pin.
 4. Update product adapters without changing product JSON versions unless a
    separate product migration explicitly requires it.
 
 Readiness compatibility aliases are write-through normalized: all aliases
 reflect the durable `forced` and `recommendation` values after normalization,
-and `DefaultSource` is always `"recommendation"`. `icot.Result.Answers` holds
+and `DefaultSource` is always `"recommendation"`. `engine.Result.Answers` holds
 the most recently collected round: it is partial when returning `needs_input`
 and otherwise contains the last successfully applied round.
 
@@ -82,14 +82,25 @@ The reusable gate is:
 ./scripts/check-compat.sh
 ```
 
-## Additive neutral engine (M29)
+## Neutral engine extraction and facade retirement
 
-New consumers may import `github.com/OpenUdon/authoring/engine`. Existing
-`authoring/icot` type names, generic signatures, methods, constants, sentinel
-values and entry points remain available over that one implementation. No JSON
-shape/version, prompt/error wording or approval/state-transition behavior changes.
-Type aliases share concrete identity across the two imports. Reflection's
-`PkgPath` reports the new `engine` ownership; persistence must use explicit
-versioned JSON contracts, not Go package identity. Exported error sentinels retain
-their initial shared identity and should not be reassigned by consumers.
-Authoring iCoT/icotcli retirement is a separate deferred decision.
+M29 introduced `github.com/OpenUdon/authoring/engine` and compatible `icot`
+aliases/forwarders. M30 removes `authoring/icot` and `authoring/icotcli` as an
+intentional pre-1.0 source break. This is the approved compatibility exception:
+frozen Ramen retains Authoring `v0.0.0-20260820042256-2f73e3526583` and its old
+imports, with no source/manifest change. It has not dropped the dependency;
+compatibility with current workspace Authoring intentionally ends.
+
+Other public APIs, generic signatures, methods, constants, sentinel identity,
+JSON shapes/versions, prompt/error wording and state transitions are unchanged.
+`engine` remains the one neutral implementation. Reflection reports `engine`
+ownership as established in M29; durable storage uses explicit versioned JSON,
+not Go package identity. Error sentinels must not be reassigned by consumers.
+
+The explicit compatibility script checks Authoring standalone/workspace and
+binds the exact current source into unchanged OpenUdon and Kinet with disposable
+modfiles, including subprocess Go builds. Ramen is checked only standalone at
+its original cached pin. The operator-owned parent `go.work` remains unchanged;
+Ramen cannot build there after removal until the operator separately excludes or
+updates it. [M30 inventory](docs/m30-consumer-inventory.md) records observed
+consumers. No publication or downstream re-pin follows from local acceptance.

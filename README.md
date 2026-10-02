@@ -5,7 +5,7 @@ used by OpenUdon and Ramen.
 
 It owns generic sessions, transcripts, prompt/replay helpers, draft lifecycle
 persistence, structured JSON fallback, dependency-aware interview graphs,
-frontier-round iCoT loops, readiness/question planning, decision evidence,
+frontier-round authoring loops, readiness/question planning, decision evidence,
 report metadata, scorecard records, and prompt-safe context shapes.
 
 It does not own OpenUdon workflow package semantics, Ramen desired-state
@@ -25,12 +25,9 @@ model-provider clients, live execution, governance, state, or reconciliation.
   fallback.
 - `engine`: generic progressive and interactive loops, atomic interview bindings,
   lifecycle hooks, semantic progress detection, repair and bound-runtime interfaces.
-- `icot`: source-compatible aliases and forwarders to `engine`; old consumers
-  remain supported.
 - `interview`: `authoring.interview.v1` dependency graphs, unified evidence,
   answers, deferrals, atomic frontier settlement, validation, status
   transitions, and ready frontiers.
-- `icotcli`: shared iCoT CLI flag plumbing and prompt/model label helpers.
 - `readiness`: readiness summaries, blocking/warning sorting, and question
   planning.
 - `decision`: decision evidence, confidence behavior, and confirmation policy.
@@ -57,7 +54,7 @@ Terraform/OpenTofu execution, or trusted-runner access.
 Authoring is shared loop infrastructure, not a product CLI. OpenUdon and Ramen
 use it for different authoring jobs:
 
-- OpenUdon iCoT starts from workflow automation intent. Its downstream adapter
+- OpenUdon workflow authoring starts from workflow automation intent. Its downstream adapter
   may guide catalog/API artifact selection or retrieval, then writes OpenUdon
   workflow authoring artifacts such as `project.md`, `workflows/intent.hcl`,
   review/eval reports, and package-oriented files. This path is oriented
@@ -86,7 +83,7 @@ intentionally different.
 
 ### Shared Context
 
-The two iCoT adapters share generic Authoring context and loop mechanics:
+Current neutral adapters and frozen older adapters share generic context and loop mechanics:
 
 - prompt sessions, default modes, answer replay, and transcript records
 - dependency-ready frontier rounds, one normalization/autosave after applying
@@ -98,8 +95,8 @@ The two iCoT adapters share generic Authoring context and loop mechanics:
 - decision evidence normalization and confirmation policy
 - prompt-safe source, operation, schema, and credential-alternative context records
 - agent result, diagnostic, artifact, metadata, and scorecard report shapes
-- common CLI flags for prompt mode, no-LLM, model labels, answers, reports, and
-  transcripts
+- product-owned CLI choices for prompt mode, models, answers, reports and
+  transcripts; the shared `icotcli` package is removed
 
 The downstream adapters provide the product hooks that make those records mean
 something. OpenUdon binds workflow intent, catalog retrieval, request mapping,
@@ -107,62 +104,22 @@ flow review, and package artifacts. Ramen binds API-source translation,
 desired-state resources, validation, graph, static plan, state, approval, and
 trusted execution boundaries.
 
-### OpenUdon iCoT
+### OpenUdon and Kinet workflow authoring
 
-OpenUdon exposes its workflow-authoring loop from the downstream checkout:
-
-```bash
-(cd ../openudon && go run ./cmd/icot --example examples/<name>)
-(cd ../openudon && go run ./cmd/openudon build --example examples/<name>)
-```
-
-The iCoT command writes the human/project brief and structured intent. The
-downstream `openudon build` command then deterministically regenerates the
-public workflow artifacts, review evidence, and quality reports from
-`workflows/intent.hcl`.
-
-Common downstream options:
-
-| Option | Purpose |
-|---|---|
-| `--example DIR` / `--dir DIR` | Example directory to create or update. |
-| `--from-example DIR` | Seed answers from an existing example. |
-| `--answers PATH` | Replay a YAML or JSON session/answers file. |
-| `--force` / `--yes` | Overwrite existing files, optionally without prompts. |
-| `--print` | Render without writing files. |
-| `--agent` | Return `needs_input` instead of prompting when incomplete. |
-| `--no-llm` | Disable optional model extraction assistance. |
-| `--provider`, `--model`, `--temperature` | Downstream model configuration. |
-| `--prompt-mode full\|normal\|fast` | Control defaulted question behavior. |
-| `--json`, `--report PATH` | Emit or save a structured report. |
-
-Typical downstream output files and directories:
-
-```text
-project.md
-workflows/intent.hcl
-workflows/workflow.hcl
-workflows/workflow.uws.yaml
-openapi/
-workflows/
-expected/
-expected/plan.json
-expected/review.md
-expected/review-handoff.json
-expected/quality.json
-.icot/
-```
-
-OpenUdon also owns related downstream subcommands such as `build`, `reconcile`,
-`lint`, `repair`, `scorecard`, `variants`, `replay-eval`, `authoring-eval`, and
-`report verify`.
+OpenUdon's `cmd/icot` is retired. Kinet owns the consumer authoring loop and UI;
+OpenUdon owns workflow step commands, validation, packaging and execution gates.
+Authoring supplies neutral engine/session primitives and does not own either
+product's commands, prompts or artifact layout. Use the products' current
+instructions for their external command interfaces; no retired CLI is invoked
+by this module's compatibility gate.
 
 ### Ramen iCoT
 
-Ramen exposes a desired-state authoring path from the downstream checkout:
+Frozen Ramen exposes the following desired-state authoring path against its
+old pinned Authoring module with `GOWORK=off`, not current workspace Authoring:
 
 ```bash
-(cd ../ramen && go run ./cmd/ramen icot \
+(cd ../ramen && GOWORK=off go run ./cmd/ramen icot \
   --goal "Create an Azure Cosmos DB account" \
   --api-source openapi:azure-cosmos=/abs/path/azure-cosmos.json \
   --out .ramen/icot/azure-cosmos \
@@ -242,6 +199,13 @@ Typical downstream output files:
 ```
 
 ## Compatibility
+
+M30 intentionally removes `authoring/icot` and `authoring/icotcli`. New consumers
+use `engine`; other public APIs, durable versions, prompts and state behavior
+remain unchanged. Frozen Ramen retains its old pin and imports, with separate
+standalone verification. Current workspace Authoring intentionally cannot build
+those Ramen imports. The operator controls any parent `go.work` adjustment.
+See [compatibility policy](COMPATIBILITY.md) and [consumer inventory](docs/m30-consumer-inventory.md).
 
 Authoring is pre-1.0. Versioned durable records use `authoring.*.v1` constants,
 but exported APIs may still change while OpenUdon and Ramen adoption settles.

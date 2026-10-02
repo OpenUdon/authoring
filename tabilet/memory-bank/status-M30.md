@@ -1,6 +1,6 @@
 # Status M30 — Retire the iCoT compatibility facade
 
-State: M30.1 complete; M30.2 pending.
+State: M30.1–M30.2 complete; exact-source qualification pending.
 
 ## Goal and dependencies
 
@@ -29,7 +29,7 @@ Markers: `` `[ ]` `` pending, `` `[~]` `` in progress, `` `[+]` `` complete,
 | Item | State | Notes |
 | --- | --- | --- |
 | M30.1 Consumer inventory and Ramen-frozen record | `[+]` | Re-verify, by import-graph search, that OpenUdon, Kinet, W8M and every workspace module outside Ramen have no `authoring/icot` or `authoring/icotcli` import; record Ramen's pin and imports; record that Ramen retains the dependency while compatibility with current workspace Authoring intentionally ends; check frozen Ramen standalone with GOWORK=off and cached readonly resolution. No migration/drop claim; record any real evidence gap. Edit nothing in Ramen. |
-| M30.2 Remove the facade | `[ ]` | Remove both packages and their tests; update API-surface, boundary and examples tests, README, COMPATIBILITY, architecture and `scripts/check-compat.sh` so Ramen is no longer required to build against workspace Authoring; record the intentional pre-1.0 source break and approved current-workspace compatibility exception; update AGENTS/product/tech-stack current descriptions in this implementation row. Neutral packages unchanged. |
+| M30.2 Remove the facade | `[+]` | Remove both packages and their tests; update API-surface, boundary and examples tests, README, COMPATIBILITY, architecture and `scripts/check-compat.sh` so Ramen is no longer required to build against workspace Authoring; record the intentional pre-1.0 source break and approved current-workspace compatibility exception; update AGENTS/product/tech-stack current descriptions in this implementation row. Neutral packages unchanged. |
 | M30.3 Qualify Authoring and unchanged consumers | `[ ]` | Standalone and workspace full tests/vet and race tests; import-boundary check. Bind exact new Authoring through temporary workspace/modfile overrides for unchanged OpenUdon and Kinet, recording effective source resolution; Kinet normal checks alone use its old pin. Separately check frozen Ramen standalone. No consumer manifest or operator workspace edit. Prove source/fixture equivalence of the neutral engine. Note the `go.work` consequence for `./ramen` as a user action. |
 | M30.4 Review and downstream handoff | `[ ]` | Persist a bounded deep review (maximum ten iterations), record exact source and checks, and hand Kinet and OpenUdon the exact revision with no required consumer change. Publication needs a separate request. |
 
@@ -99,3 +99,19 @@ readonly manifests and installed Go 1.26.7. Initial offline automatic-toolchain
 and W8M-root attempts are not acceptance evidence; explicit installed toolchain
 and the actual W8M module corrected those checks. No consumer or operator
 workspace file was changed. M30.1 is complete; review remains 0/10.
+
+### M30.2 evidence
+
+Both compatibility packages and their tests are removed. Examples now use
+`engine`; root API/boundary tests guard neutral records and the absence of both
+retired package directories. Current instructions, README, compatibility and
+memory-bank descriptions record the approved intentional source break. The
+compatibility script binds unchanged Kinet/OpenUdon through temporary modfiles,
+including subprocess builds, and keeps Ramen standalone at its frozen pin.
+Workspace and standalone `go test ./...`, workspace `go vet ./...`, shell syntax
+and `git diff --check` passed offline with installed Go 1.26.7. All 56 surviving
+neutral-package source/test/fixture and manifest files are byte-identical to
+`dc8f3d61970ae628fc0399b0ef42187aa62a3e5b`; the intentional compatibility-script
+change is outside that equivalence scope. Full race and exact-consumer gates
+remain M30.3, not yet acceptance evidence. No neutral implementation, dependency,
+consumer manifest or operator workspace change.

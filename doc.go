@@ -2,7 +2,7 @@
 //
 // The root package is intentionally small. Public behavior lives in
 // subpackages grouped by concern: trust, session, transcript, prompt,
-// lifecycle, structured, engine, icot, interview, readiness, decision, report, and
+// lifecycle, structured, engine, interview, readiness, decision, report, and
 // promptcontext.
 // Downstream products bind those generic contracts to product-specific
 // prompts, schemas, validation, artifacts, credentials, model clients, and

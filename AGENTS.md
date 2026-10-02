@@ -3,7 +3,7 @@
 ## Purpose
 
 Authoring is the public shared authoring engine for OpenUdon and Ramen. It owns
-generic progressive iCoT/session orchestration, structured JSON completion
+generic progressive authoring/session orchestration, structured JSON completion
 helpers, transcript/event contracts, readiness-loop primitives, and adapter
 interfaces for product-specific artifact generation.
 
@@ -112,12 +112,14 @@ go vet ./...
 git diff --check
 ```
 
-When exported APIs change, run dependent checks in sibling consumers as
-applicable:
+When exported APIs change, run `scripts/check-compat.sh` to bind exact source
+into unchanged Kinet/OpenUdon. Frozen Ramen is checked standalone, never against
+current workspace Authoring. Keep the operator-owned parent `go.work` unchanged.
+Additional consumer checks, as applicable:
 
 ```bash
 (cd ../openudon && go test ./...)
-(cd ../ramen && go test ./...)
+(cd ../ramen && GOWORK=off go build -mod=readonly ./cmd/ramen)
 ```
 
 ## Safety

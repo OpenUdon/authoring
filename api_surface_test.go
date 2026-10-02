@@ -5,6 +5,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/OpenUdon/authoring/engine"
 	"github.com/OpenUdon/authoring/interview"
 	"github.com/OpenUdon/authoring/lifecycle"
 	"github.com/OpenUdon/authoring/prompt"
@@ -39,6 +40,9 @@ func TestDurableContractVersions(t *testing.T) {
 
 func TestDurableContractJSONTags(t *testing.T) {
 	types := []reflect.Type{
+		reflect.TypeOf(engine.Event{}),
+		reflect.TypeOf(engine.PromptTranscript{}),
+		reflect.TypeOf(engine.RoundAnswer{}),
 		reflect.TypeOf(interview.State{}),
 		reflect.TypeOf(interview.Node{}),
 		reflect.TypeOf(interview.Evidence{}),

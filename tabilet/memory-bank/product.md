@@ -137,9 +137,12 @@ chronology, rejects unredacted sensitive persistence, and uses a configurable
 expands the original M02-M06 sketch while keeping OpenUdon and Ramen product
 semantics downstream.
 
-## M29 neutral engine extraction
+## Neutral engine and retired compatibility facade
 
-The generic controller and atomic interview binding now live in `engine`.
-The existing `icot` import delegates to that implementation and remains usable
-by old consumers. Product prompts, artifact semantics and execution policy
-remain downstream; full compatibility and publication acceptance are pending.
+The generic controller and atomic interview binding live in `engine`. M29's
+compatible facade was accepted/published; M30 now removes `icot` and `icotcli`
+under the approved pre-1.0 exception. Frozen Ramen keeps its old standalone pin
+and imports; current workspace compatibility for those imports intentionally
+ends. Kinet and OpenUdon need no source or manifest change. Other public APIs,
+durable records, prompts, artifact semantics and execution policy are unchanged.
+M30 qualification and closing review remain pending; publication is separate.

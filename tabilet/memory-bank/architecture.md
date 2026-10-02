@@ -87,7 +87,7 @@ transcript/   transcript turns, model/provider metadata, event records
 prompt/       local prompt modes, required prompts, replay scripts
 lifecycle/    draft load/save/delete, autosave, atomic writes, artifact records
 structured/   JSON completion contracts, fallback parsing, schema envelopes
-icot/         generic loops, interview binding, and runtime adapter interfaces
+engine/       generic loops, interview binding, and runtime adapter interfaces
 interview/    versioned graph, unified evidence, and atomic round resolutions
 readiness/    shared readiness issue/result and question-planning primitives
 report/       result contracts, report metadata, retention, scorecard helpers
@@ -273,11 +273,14 @@ package.
 - Noninteractive agent results must distinguish `complete`, `needs_input`,
   `failed`, and `canceled` without implying product-specific remediation.
 
-## M29 additive engine ownership
+## Neutral engine ownership (M29 extraction, M30 removal)
 
-`engine` now owns the relocated generic progressive, interactive, bound-runtime,
-repair and atomic interview implementation. `icot` provides type aliases and
-forwarding functions to the same implementation, without reverse imports. The
-relocation preserves function bodies and durable wire behavior. Reflection sees
-the concrete types' new package ownership; no JSON field or envelope changes.
-Old consumers remain supported; retirement is a separate deferred decision.
+`engine` owns the generic progressive, interactive, bound-runtime, repair and
+atomic interview implementation. M29's alias/forwarder facade is removed in
+M30, including `icotcli`; no neutral implementation body, signature or durable
+wire changes. Old pinned Ramen continues standalone, but current workspace
+compatibility is intentionally ended under the approved exception. Kinet and
+OpenUdon use only surviving neutral packages. Exact-source qualification uses
+disposable overrides, not consumer manifests or the operator's `go.work`.
+Earlier M01–M29 paragraphs describe historical extraction names; `engine` is
+the current owner of their loop and interview APIs.

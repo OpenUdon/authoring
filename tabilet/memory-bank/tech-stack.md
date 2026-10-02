@@ -135,15 +135,12 @@ After exported API changes:
 
 ```bash
 (cd ../openudon && go test ./...)
-(cd ../ramen && go test ./...)
+(cd ../ramen && GOWORK=off go build -mod=readonly ./cmd/ramen)
 (cd ../apitools && go test ./...)
 ```
 
-OpenUdon adoption checks also include the existing iCoT regression harness:
-
-```bash
-(cd ../openudon && make icot-authoring-scorecard)
-```
+OpenUdon's iCoT command/harness is retired. Use its current offline Go and
+neutral authoring regression gates; no removed command is part of this check.
 
 The reusable compatibility gate is:
 
@@ -188,10 +185,17 @@ The reusable compatibility gate is:
 - Keep default tests provider-free, model-free, executor-free, and
   credential-free. Use fake runtimes and fake structured clients.
 
-## M29 neutral engine and compatibility facade
+## Neutral engine after M30 facade removal
 
-The new public import is `github.com/OpenUdon/authoring/engine`. Existing
-`github.com/OpenUdon/authoring/icot` APIs remain available as aliases/forwarders.
-Generic aliases use the existing Go 1.26.3 directive; no dependency was added.
-Focused checks use `go test ./engine ./icot`; full workspace and standalone
-checks, race and downstream compatibility are required before publication.
+The surviving loop import is `github.com/OpenUdon/authoring/engine`.
+`icot`/`icotcli` and their facade-only tests are removed. No dependency, Go
+requirement, neutral wire/version or implementation body changed. The explicit
+`scripts/check-compat.sh` checks Authoring workspace/standalone tests, vet, race
+and boundary, then uses temporary modfile overrides for unchanged Kinet and
+OpenUdon, with effective source resolution printed. `GOFLAGS` carries that
+override into subprocess builds. Frozen Ramen is built standalone at its old pin
+with readonly module resolution; current workspace Ramen is intentionally excluded.
+Run offline with an installed compatible toolchain and disk-backed temporary
+output when the host's `/tmp` quota is insufficient. No parent workspace edit or
+consumer manifest change is performed. Earlier numbered notes describe the
+historical package names at their recorded stage.
