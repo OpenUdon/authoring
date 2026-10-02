@@ -196,6 +196,15 @@ OpenUdon, with effective source resolution printed. `GOFLAGS` carries that
 override into subprocess builds. Frozen Ramen is built standalone at its old pin
 with readonly module resolution; current workspace Ramen is intentionally excluded.
 Run offline with an installed compatible toolchain and disk-backed temporary
-output when the host's `/tmp` quota is insufficient. No parent workspace edit or
+output when the host's `/tmp` quota is insufficient for explicit builds.
+For the full unchanged Kinet gate, keep TMPDIR and GOTMPDIR at `/tmp`: Go 1.26
+also places `testing.TempDir` under GOTMPDIR, and Kinet's shared-card canonicalizer
+recognizes standard `/tmp/Test...` fixture paths. Filesystem free space does
+not establish per-user tmpfs quota. If linking fails on quota, compile the
+remaining test package with `go test -c -o <private-disk-path>` and the same
+exact-source modfile, then run that binary from its package directory with TMPDIR/GOTMPDIR=/tmp. Reuse
+already valid package checks at the same source and record the composed gate;
+do not regenerate fixtures to accommodate test-environment drift.
+No parent workspace edit or
 consumer manifest change is performed. Earlier numbered notes describe the
 historical package names at their recorded stage.

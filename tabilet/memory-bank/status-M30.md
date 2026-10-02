@@ -1,6 +1,6 @@
 # Status M30 — Retire the iCoT compatibility facade
 
-State: M30.1–M30.2 complete; exact-source qualification pending.
+State: M30.1–M30.3 complete; closing review and handoff pending.
 
 ## Goal and dependencies
 
@@ -30,7 +30,7 @@ Markers: `` `[ ]` `` pending, `` `[~]` `` in progress, `` `[+]` `` complete,
 | --- | --- | --- |
 | M30.1 Consumer inventory and Ramen-frozen record | `[+]` | Re-verify, by import-graph search, that OpenUdon, Kinet, W8M and every workspace module outside Ramen have no `authoring/icot` or `authoring/icotcli` import; record Ramen's pin and imports; record that Ramen retains the dependency while compatibility with current workspace Authoring intentionally ends; check frozen Ramen standalone with GOWORK=off and cached readonly resolution. No migration/drop claim; record any real evidence gap. Edit nothing in Ramen. |
 | M30.2 Remove the facade | `[+]` | Remove both packages and their tests; update API-surface, boundary and examples tests, README, COMPATIBILITY, architecture and `scripts/check-compat.sh` so Ramen is no longer required to build against workspace Authoring; record the intentional pre-1.0 source break and approved current-workspace compatibility exception; update AGENTS/product/tech-stack current descriptions in this implementation row. Neutral packages unchanged. |
-| M30.3 Qualify Authoring and unchanged consumers | `[ ]` | Standalone and workspace full tests/vet and race tests; import-boundary check. Bind exact new Authoring through temporary workspace/modfile overrides for unchanged OpenUdon and Kinet, recording effective source resolution; Kinet normal checks alone use its old pin. Separately check frozen Ramen standalone. No consumer manifest or operator workspace edit. Prove source/fixture equivalence of the neutral engine. Note the `go.work` consequence for `./ramen` as a user action. |
+| M30.3 Qualify Authoring and unchanged consumers | `[+]` | Standalone and workspace full tests/vet and race tests; import-boundary check. Bind exact new Authoring through temporary workspace/modfile overrides for unchanged OpenUdon and Kinet, recording effective source resolution; Kinet normal checks alone use its old pin. Separately check frozen Ramen standalone. No consumer manifest or operator workspace edit. Prove source/fixture equivalence of the neutral engine. Note the `go.work` consequence for `./ramen` as a user action. |
 | M30.4 Review and downstream handoff | `[ ]` | Persist a bounded deep review (maximum ten iterations), record exact source and checks, and hand Kinet and OpenUdon the exact revision with no required consumer change. Publication needs a separate request. |
 
 ## Verification and acceptance
@@ -115,3 +115,57 @@ neutral-package source/test/fixture and manifest files are byte-identical to
 change is outside that equivalence scope. Full race and exact-consumer gates
 remain M30.3, not yet acceptance evidence. No neutral implementation, dependency,
 consumer manifest or operator workspace change.
+
+### M30.3 qualification attempt — environment correction
+
+The first offline exact-source run completed Authoring full workspace/standalone
+and race checks, and OpenUdon full test/vet at unchanged
+`fbda7e9231b8b306fd1ae3ac623e9d70331b3e08`. Both consumer module resolutions
+bound `/home/peter/Workspace/authoring` at source
+`db4f5193bc53819be2b1bf1d8728735941e28d9e`. Kinet's full suite failed only
+`TestExternalAPIKeepsOriginalRequestTransientAndRejectWritesNoLedger`: its
+existing shared-card canonicalizer assumes `/tmp/Test...` and did not normalize
+the alternative TMPDIR. This is failed evidence, not accepted qualification;
+no fixture was regenerated and no Kinet code changed. The corrected invocation
+keeps TMPDIR=/tmp and places only Go build artifacts in disk-backed GOTMPDIR.
+Ramen was not reached in that failed script run. Review remains 0/10.
+
+The second attempt with TMPDIR=/tmp still failed that same fixture because
+Go 1.26's `testing.TempDir` uses GOTMPDIR directly (installed toolchain
+`src/testing/testing.go`, `makeTempDir`). The first correction was insufficient
+and is not accepted evidence. Both TMPDIR and GOTMPDIR now use /tmp for the
+unchanged full compatibility gate; the inspected filesystem has 2.7 GiB free.
+No fixtures, consumer code or manifests were changed. Large explicit native
+qualification outputs remain in the private disk-backed cache.
+
+The third script invocation hit the host's per-user /tmp disk quota while
+linking OpenUdon's elicitor test binary, despite filesystem-wide free space.
+It is failed evidence, not a code or compatibility failure. Existing valid
+OpenUdon full test/vet evidence from the first two invocations is reused. The
+remaining Kinet server suite is compiled with the exact-source temporary modfile
+on disk and run separately with standard /tmp fixture paths; Kinet's other test
+packages passed at the same source in both earlier invocations. This separates
+large link output from runtime fixture paths without editing consumer tests or
+fixtures. Kinet vet and frozen Ramen remain explicit final checks.
+
+The first direct compiled-server invocation used the repository root instead
+of the package working directory that `go test` supplies. Relative workflow
+fixtures were therefore unavailable; that attempt failed and is not acceptance
+evidence. The unchanged binary is rerun from Kinet `internal/server` with the
+standard runtime fixture environment. No code, fixture or module change.
+
+### M30.3 completed — exact-source qualification
+
+[Qualification record](../../docs/m30-qualification.md) records the composed
+passing gate, effective consumer directory/version, full source revisions,
+commands and hashes of both passing and failed evidence. Authoring full
+workspace/standalone tests/vet, standalone race and import/API/absence gates
+passed. Unchanged OpenUdon full tests/vet passed at the exact new Authoring;
+all unchanged Kinet packages passed across its full-suite and corrected complete
+compiled-server invocation, with explicit Kinet vet. Frozen Ramen resolved its
+original cached pin with no replacement and built standalone. All 56 surviving
+neutral-package source/test/fixture and manifest files remain byte-identical to
+the pre-removal baseline. Kinet/OpenUdon/Ramen worktrees and operator go.work
+are unchanged. Qualified removal source:
+`db4f5193bc53819be2b1bf1d8728735941e28d9e`; only status/technical docs were dirty.
+M30.3 is complete; review remains 0/10 and acceptance awaits M30.4.
