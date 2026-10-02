@@ -145,4 +145,6 @@ under the approved pre-1.0 exception. Frozen Ramen keeps its old standalone pin
 and imports; current workspace compatibility for those imports intentionally
 ends. Kinet and OpenUdon need no source or manifest change. Other public APIs,
 durable records, prompts, artifact semantics and execution policy are unchanged.
-M30 qualification and closing review remain pending; publication is separate.
+M30 is accepted after exact-source consumer qualification and review 1.
+Its compatibility surfaces are retired; the completed specification/status
+remain in this package's ledger. Publication is separate.

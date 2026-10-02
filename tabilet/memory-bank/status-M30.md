@@ -1,6 +1,6 @@
 # Status M30 — Retire the iCoT compatibility facade
 
-State: M30.1–M30.3 complete; closing review and handoff pending.
+State: Complete; accepted, compatibility surfaces retired; publication separate.
 
 ## Goal and dependencies
 
@@ -31,7 +31,7 @@ Markers: `` `[ ]` `` pending, `` `[~]` `` in progress, `` `[+]` `` complete,
 | M30.1 Consumer inventory and Ramen-frozen record | `[+]` | Re-verify, by import-graph search, that OpenUdon, Kinet, W8M and every workspace module outside Ramen have no `authoring/icot` or `authoring/icotcli` import; record Ramen's pin and imports; record that Ramen retains the dependency while compatibility with current workspace Authoring intentionally ends; check frozen Ramen standalone with GOWORK=off and cached readonly resolution. No migration/drop claim; record any real evidence gap. Edit nothing in Ramen. |
 | M30.2 Remove the facade | `[+]` | Remove both packages and their tests; update API-surface, boundary and examples tests, README, COMPATIBILITY, architecture and `scripts/check-compat.sh` so Ramen is no longer required to build against workspace Authoring; record the intentional pre-1.0 source break and approved current-workspace compatibility exception; update AGENTS/product/tech-stack current descriptions in this implementation row. Neutral packages unchanged. |
 | M30.3 Qualify Authoring and unchanged consumers | `[+]` | Standalone and workspace full tests/vet and race tests; import-boundary check. Bind exact new Authoring through temporary workspace/modfile overrides for unchanged OpenUdon and Kinet, recording effective source resolution; Kinet normal checks alone use its old pin. Separately check frozen Ramen standalone. No consumer manifest or operator workspace edit. Prove source/fixture equivalence of the neutral engine. Note the `go.work` consequence for `./ramen` as a user action. |
-| M30.4 Review and downstream handoff | `[ ]` | Persist a bounded deep review (maximum ten iterations), record exact source and checks, and hand Kinet and OpenUdon the exact revision with no required consumer change. Publication needs a separate request. |
+| M30.4 Review and downstream handoff | `[+]` | Persist a bounded deep review (maximum ten iterations), record exact source and checks, and hand Kinet and OpenUdon the exact revision with no required consumer change. Publication needs a separate request. |
 
 ## Verification and acceptance
 
@@ -42,7 +42,7 @@ versions, signatures of non-removed packages and state behavior are unchanged.
 
 ## Closing review
 
-Persisted iteration count: 0/10. Task completion alone does not establish
+Persisted iteration count: 1/10 (passed). Task completion alone does not establish
 acceptance. Record exact source, observed checks, findings and downstream
 handoff before completion.
 
@@ -169,3 +169,52 @@ the pre-removal baseline. Kinet/OpenUdon/Ramen worktrees and operator go.work
 are unchanged. Qualified removal source:
 `db4f5193bc53819be2b1bf1d8728735941e28d9e`; only status/technical docs were dirty.
 M30.3 is complete; review remains 0/10 and acceptance awaits M30.4.
+
+## Closing review iteration 1 — started
+
+Started after reading the persisted 0/10 count and qualification record.
+Review baseline is full M30 change from
+`dc8f3d61970ae628fc0399b0ef42187aa62a3e5b` through
+`9241c481a281ab31f3e4b6ae89f9242ae9517c6c`, plus this status selection.
+Qualified implementation source is
+`db4f5193bc53819be2b1bf1d8728735941e28d9e`; intervening changes are documentation
+only. Review the removed surfaces, unchanged neutral engine/API/wire/safety,
+consumer/source resolution, compatibility tooling, frozen Ramen exception,
+documentation, permissions and evidence. No acceptance is claimed yet.
+
+## Closing review iteration 1 — passed
+
+Reviewed the full M30 diff and approved planning amendments, including every
+removed alias/forwarder and CLI helper, surviving engine implementation and
+root examples/API/boundary tests, exact-source compatibility tooling, consumer
+inventory and all qualification outcomes. No open P1, P2 or higher finding.
+The removed facade has no independent implementation or required consumer
+outside frozen Ramen. All 56 surviving neutral source/test/fixture and manifest
+files remain byte-identical to baseline; root examples preserve expected output.
+Generic type identity, sentinel ownership, JSON tags/versions, prompts,
+atomicity, cancellation, persistence/redaction, repair and state behavior stay
+unchanged. The deliberate removed-import source break and operator-workspace
+consequence are explicit. Temporary modfiles bind new Authoring into unchanged
+Kinet/OpenUdon, including child builds; frozen Ramen resolves/builds independently
+at its original pin. Failed environment/working-directory attempts are retained;
+the composed passing gate covers every required test package and vet/race gate.
+
+No consumer manifest, wire/schema, dependency, runtime pin, owner ledger,
+operator workspace, secret, install or publication change was made by M30.
+Package-local completed-record conventions are preserved. Remaining consolidation
+and exact-source handoff are documentation only under M30.4. Direction remains
+the approved v8; no successor evolution version is justified.
+
+## M30.4 completed — accepted retirement and handoff
+
+Accepted removal source: `db4f5193bc53819be2b1bf1d8728735941e28d9e`.
+Qualification record: `9241c481a281ab31f3e4b6ae89f9242ae9517c6c`, identical
+implementation. Review 1/10 passed; all tasks/checks complete.
+[Exact-source handoff](../../docs/m30-handoff.md) returns consumer dispositions
+to Kinet and OpenUdon without repinning or sibling writes. Kinet's coordinator
+can close Stage 6 after reconciling this record; M17/STG-07 remain excluded.
+Current truth and status index are consolidated. The v8 planning snapshots and
+completed M29 evidence retain their recorded historical context. Authoring's
+existing convention keeps this full accepted status/specification in its own
+ledger; no Kinet retirement envelope or ID allocation is introduced. Publication
+requires separate authority and was not performed. No required work remains.

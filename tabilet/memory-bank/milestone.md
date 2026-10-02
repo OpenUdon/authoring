@@ -57,8 +57,10 @@ migration, and M27 security-alternative prompt context. I01 interview/session
 integrity, D01 persistence/report hardening, and M28 lifecycle-ranking boundary
 relocation are complete and published. OpenUdon and Ramen pin the coordinated
 revisions and pass downstream standalone checks. M29 added the neutral engine
-with the compatible iCoT facade. M30, approved for planning on 2026-10-02 and
-pending, retires that facade with Ramen frozen at its pinned Authoring.
+with the compatible iCoT facade. M30 is complete and accepted after review 1,
+retiring that facade with Ramen frozen at its pinned Authoring.
+The exact accepted source and qualification are recorded in
+[status-M30.md](status-M30.md).
 The repository exists
 as a public Go module scaffold, and
 `AGENTS.md`, `tabilet/memory-bank/`, and `tabilet/evolution/` are symlink-facing paths to the
@@ -195,7 +197,7 @@ Build Authoring in provider-free, model-free slices:
 | D01 | [status-D01.md](status-D01.md) | Persistence and report hardening. |
 | M28 | [status-M28.md](status-M28.md) | API lifecycle-ranking boundary relocation. |
 | M29 | [status-M29.md](status-M29.md) | Complete: neutral engine, retained iCoT facade and verified publication. |
-| M30 | [status-M30.md](status-M30.md) | Pending: retire the iCoT facade; Ramen frozen at its pinned Authoring. |
+| M30 | [status-M30.md](status-M30.md) | Complete: iCoT/icotcli surfaces retired; exact-source consumers qualified, review 1 passed; publication separate. |
 
 ## Candidate Directions
 
@@ -852,3 +854,15 @@ condition without reopening M29 or changing its historical evidence.
 names its commit policy; planning grants no commit, push, tag or module
 publication. No Ramen, udon-ui, W8M or other sibling edit; Ramen is read-only
 evidence.
+
+**M30 completion (2026-10-02).** Accepted removal source
+`db4f5193bc53819be2b1bf1d8728735941e28d9e`, qualified in
+`9241c481a281ab31f3e4b6ae89f9242ae9517c6c`; review 1 passed with no open
+P1/P2 findings. All four task rows and required verification are complete.
+[Handoff](../../docs/m30-handoff.md) records unchanged Kinet/OpenUdon consumer
+checks, frozen Ramen's original standalone pin, operator workspace consequence
+and separate publication/adoption decisions. M30 retires the compatibility
+surfaces; this repository retains its completed full specification/status under
+its existing convention. Earlier planning-provenance counts/authority describe
+the proposal baseline; the explicit Stage 6 goal supplied task-commit authority.
+No push, tag, publication or sibling edit.
