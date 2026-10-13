@@ -113,12 +113,17 @@ covered directly.
   (`go list -m -json` resolves the replace to `/home/peter/Workspace/authoring`)
   passes the affected packages: `authoring`, `internal/icot`, `internal/icotcli`,
   `cmd/ramen`.
-- **Environment caveat.** `scripts/check-compat.sh` now sweeps Ramen as a bound
-  consumer. Its per-consumer `go test ./...` uses Go's 10-minute default timeout,
-  and Ramen's `tests/` corpus package alone needs about 12 minutes in this
-  sandbox (already recorded at Ramen M84), so a full clean script run is not
-  achievable here; the bound-consumer acceptance was verified directly instead,
-  and the script itself is updated and otherwise unchanged in behaviour.
+- **Environment caveat.** The full `scripts/check-compat.sh` run stops in the
+  first consumer sweep, OpenUdon, because several OpenUdon tests create scratch
+  directories inside their own checkout (`mkdir ./.m96-test-...`) and the session
+  sandbox holds `../openudon` and `../kinet` read-only; every such failure reads
+  `read-only file system`, so they are environment failures rather than
+  compatibility failures, and the script never reaches the Ramen sweep.
+  Authoring's own suite, vet, and import-boundary checks run unchanged here, and
+  the Ramen-bound acceptance that M31 adds was verified directly with a
+  disposable modfile. Ramen's `tests/` corpus package additionally exceeds Go's
+  ten-minute default test timeout in this sandbox (recorded at Ramen M84), so a
+  full Ramen sweep needs an explicit longer timeout.
 
 **Downstream handoff.** The Ramen reference edge `Authoring:M31 -> Ramen:M85` is
 satisfied: Ramen M85 is dispatchable, and M86 follows it. No other consumer
