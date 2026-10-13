@@ -61,9 +61,10 @@ with the compatible iCoT facade. M30 is complete and accepted after review 1,
 retiring that facade with Ramen frozen at its pinned Authoring.
 The exact accepted source and qualification are recorded in
 [status-M30.md](status-M30.md).
-M31 is the one pending unit: it migrates the
-frozen Ramen consumer onto the published neutral engine and adopts that revision
-in Ramen; see [status-M31.md](status-M31.md).
+M31 is complete and accepted: Ramen adopted the
+published neutral engine, imports `authoring/engine` instead of the retired
+facade, and owns its interactive iCoT CLI flags locally; see
+[status-M31.md](status-M31.md).
 The repository exists
 as a public Go module scaffold, and
 `AGENTS.md`, `tabilet/memory-bank/`, and `tabilet/evolution/` are symlink-facing paths to the
@@ -201,7 +202,7 @@ Build Authoring in provider-free, model-free slices:
 | M28 | [status-M28.md](status-M28.md) | API lifecycle-ranking boundary relocation. |
 | M29 | [status-M29.md](status-M29.md) | Complete: neutral engine, retained iCoT facade and verified publication. |
 | M30 | [status-M30.md](status-M30.md) | Complete: iCoT/icotcli surfaces retired; exact-source consumers qualified, review 1 passed; publication separate. |
-| M31 | [status-M31.md](status-M31.md) | Ramen neutral-engine consumer adoption off the retired iCoT facade. |
+| M31 | [status-M31.md](status-M31.md) | Complete: Ramen adopted the neutral engine; M30's frozen-consumer exception ended. |
 
 ## Candidate Directions
 

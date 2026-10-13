@@ -1,6 +1,6 @@
 # Status M31 — Ramen neutral-engine consumer adoption
 
-State: In progress; M31.1-M31.3 complete, M31.4 pending. Whole-milestone review 0/10, not started.
+State: Complete; accepted. Whole-milestone review 1/10, passed.
 
 ## Goal and dependencies
 
@@ -43,7 +43,7 @@ Markers: `` `[ ]` `` pending, `` `[~]` `` in progress, `` `[+]` `` complete,
 | M31.1 Import inventory and neutral-engine mapping | `[+]` | R1. |
 | M31.2 Ramen migration to the adopted revision | `[+]` | Ramen adopted `v0.0.0-20261002192730-cb21c3e36d19`: `go.mod` changed only that require line and `go.sum` gained that revision's two hashes (the revision declares no requirements). Seven sites moved from the retired `authoring/icot` facade to `authoring/engine`, which exports every symbol they used; the retired `icotcli` helpers were re-implemented in Ramen at `internal/icotcli` with the same `Flags`/`AddFlags`/`PromptDefaultMode` contract, following OpenUdon's `internal/authoringcli` precedent. No retired import remains and no operator-visible behavior changes (Ramen commit `ca9e86a`). |
 | M31.3 Cross-repo qualification and adoption record | `[+]` | Authoring's own `go test ./...` and import-boundary check pass at the adopted revision; `scripts/check-compat.sh` now binds Ramen as a migrated consumer and keeps a standalone build at its own pin; `COMPATIBILITY.md` records the end of the frozen-consumer exception; Ramen's `tech-stack.md` records the adopted pin. |
-| M31.4 Bounded deep review and downstream handoff | `[ ]` | Review the whole milestone and hand off the satisfied `Authoring:M31 -> Ramen:M85` edge. |
+| M31.4 Bounded deep review and downstream handoff | `[+]` | Review 1/10 passed with no P1/P2; one hardening action ported the retired icotcli unit tests into Ramen. Ramen M85 is unblocked. |
 
 ## M31.1 record
 
@@ -89,3 +89,37 @@ report contracts stay as they are.
 
 Persisted iteration count: 0/10. Task completion alone does not establish
 acceptance.
+
+## M31.4 record — review 1/10, passed
+
+**Reviewed.** The whole milestone diff across both repositories: Ramen
+`ca9e86a` (migration), `d274f62` (adoption record), `3f119a9` (ported tests),
+and this repository's `351781d`, `37c2eee`, `30501f5`.
+
+**Findings.** No P1 or P2. The `icot -> engine` change is a package rename onto
+`engine`, which exports every symbol Ramen used; `go.mod` changed exactly one
+require line and `go.sum` gained that revision's two hashes because the adopted
+revision declares no requirements; and Ramen's `internal/icotcli` body is
+byte-identical to the retired shared implementation, verified by diff against
+`db4f519^:icotcli/flags.go`. One hardening action rather than a finding: the
+retired `icotcli` unit tests were ported into Ramen so the local package is
+covered directly.
+
+**Verification.**
+- Authoring `go test ./...` and the import-boundary check pass at this revision.
+- Ramen against the adopted pin: `GOWORK=off go build ./...`, `go vet`, and
+  `go test ./... -timeout 30m` (29 packages) pass.
+- Ramen bound to this workspace source through a disposable modfile
+  (`go list -m -json` resolves the replace to `/home/peter/Workspace/authoring`)
+  passes the affected packages: `authoring`, `internal/icot`, `internal/icotcli`,
+  `cmd/ramen`.
+- **Environment caveat.** `scripts/check-compat.sh` now sweeps Ramen as a bound
+  consumer. Its per-consumer `go test ./...` uses Go's 10-minute default timeout,
+  and Ramen's `tests/` corpus package alone needs about 12 minutes in this
+  sandbox (already recorded at Ramen M84), so a full clean script run is not
+  achievable here; the bound-consumer acceptance was verified directly instead,
+  and the script itself is updated and otherwise unchanged in behaviour.
+
+**Downstream handoff.** The Ramen reference edge `Authoring:M31 -> Ramen:M85` is
+satisfied: Ramen M85 is dispatchable, and M86 follows it. No other consumer
+depends on this milestone. M30's frozen-consumer exception is closed.
