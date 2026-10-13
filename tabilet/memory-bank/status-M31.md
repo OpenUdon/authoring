@@ -1,6 +1,6 @@
 # Status M31 — Ramen neutral-engine consumer adoption
 
-State: In progress; M31.1 complete, M31.2-M31.4 pending. Whole-milestone review 0/10, not started.
+State: In progress; M31.1-M31.3 complete, M31.4 pending. Whole-milestone review 0/10, not started.
 
 ## Goal and dependencies
 
@@ -41,8 +41,8 @@ Markers: `` `[ ]` `` pending, `` `[~]` `` in progress, `` `[+]` `` complete,
 | Item | State | Notes |
 |---|---|---|
 | M31.1 Import inventory and neutral-engine mapping | `[+]` | R1. |
-| M31.2 Ramen migration to the adopted revision | `[ ]` | Adopt `github.com/OpenUdon/authoring@cb21c3e` (module pseudo-version `v0.0.0-20261002192730-cb21c3e36d19`), update `go.mod`/`go.sum`, migrate the nine retired-import sites, and preserve the operator-visible `ramen author`/`ramen icot` contracts. |
-| M31.3 Cross-repo qualification and adoption record | `[ ]` | Qualify Authoring and the migrated Ramen against the exact adopted revision and record the adoption in both ledgers. |
+| M31.2 Ramen migration to the adopted revision | `[+]` | Ramen adopted `v0.0.0-20261002192730-cb21c3e36d19`: `go.mod` changed only that require line and `go.sum` gained that revision's two hashes (the revision declares no requirements). Seven sites moved from the retired `authoring/icot` facade to `authoring/engine`, which exports every symbol they used; the retired `icotcli` helpers were re-implemented in Ramen at `internal/icotcli` with the same `Flags`/`AddFlags`/`PromptDefaultMode` contract, following OpenUdon's `internal/authoringcli` precedent. No retired import remains and no operator-visible behavior changes (Ramen commit `ca9e86a`). |
+| M31.3 Cross-repo qualification and adoption record | `[+]` | Authoring's own `go test ./...` and import-boundary check pass at the adopted revision; `scripts/check-compat.sh` now binds Ramen as a migrated consumer and keeps a standalone build at its own pin; `COMPATIBILITY.md` records the end of the frozen-consumer exception; Ramen's `tech-stack.md` records the adopted pin. |
 | M31.4 Bounded deep review and downstream handoff | `[ ]` | Review the whole milestone and hand off the satisfied `Authoring:M31 -> Ramen:M85` edge. |
 
 ## M31.1 record
