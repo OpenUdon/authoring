@@ -25,7 +25,7 @@ git status --short
 
 # GOFLAGS also binds subprocess Go builds launched by consumer tests. Only
 # temporary modfiles change; consumer manifests and the operator workspace do not.
-for repo in openudon kinet; do
+for repo in openudon kinet ramen; do
   consumer="$workspace/$repo"
   [[ -f "$consumer/go.mod" && -f "$consumer/go.sum" ]] || {
     echo "Required unchanged consumer checkout is missing: $consumer" >&2
@@ -47,16 +47,18 @@ for repo in openudon kinet; do
   )
 done
 
-# Ramen deliberately retains the removed APIs at its old pin. It is frozen,
-# and is qualified separately without the new-source override or parent go.work.
+# Ramen migrated to the neutral engine in Authoring M31 and is bound as a
+# consumer above. It is additionally built standalone at its own pin, without
+# the workspace override, so the published revision stays sufficient for
+# GOWORK=off consumers.
 [[ -f "$workspace/ramen/go.mod" ]] || {
-  echo "Required frozen Ramen checkout is missing" >&2
+  echo "Required Ramen checkout is missing" >&2
   exit 1
 }
 (
   cd "$workspace/ramen"
   export GOWORK=off GOFLAGS=-mod=readonly
-  echo "Frozen Ramen revision: $(git rev-parse --verify HEAD)"
+  echo "Ramen revision: $(git rev-parse --verify HEAD)"
   go list -m -json github.com/OpenUdon/authoring
   go build -o "$check_root/ramen" ./cmd/ramen
 )

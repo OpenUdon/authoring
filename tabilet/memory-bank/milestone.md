@@ -214,6 +214,10 @@ with the compatible iCoT facade. M30 is complete and accepted after review 1,
 retiring that facade with Ramen frozen at its pinned Authoring.
 The exact accepted source and qualification are recorded in
 [status-M30.md](status-M30.md).
+M31 is complete and accepted: Ramen adopted the
+published neutral engine, imports `authoring/engine` instead of the retired
+facade, and owns its interactive iCoT CLI flags locally; see
+[status-M31.md](status-M31.md).
 Authoring is a public Go module. Its `AGENTS.md`, `tabilet/memory-bank/`, and
 `tabilet/evolution/` are tracked directly in this repository. Workflow and
 planning changes use these local files and this checkout's Git commands.
@@ -350,6 +354,7 @@ Build Authoring in provider-free, model-free slices:
 | M28 | [status-M28.md](status-M28.md) | API lifecycle-ranking boundary relocation. |
 | M29 | [status-M29.md](status-M29.md) | Complete: neutral engine, retained iCoT facade and verified publication. |
 | M30 | [status-M30.md](status-M30.md) | Complete: iCoT/icotcli surfaces retired; exact-source consumers qualified, review 1 passed; publication separate. |
+| M31 | [status-M31.md](status-M31.md) | Complete: Ramen adopted the neutral engine; M30's frozen-consumer exception ended. |
 
 ## Requested changes after initialization
 
@@ -1423,3 +1428,60 @@ surfaces; this repository retains its completed full specification/status under
 its existing convention. Earlier planning-provenance counts/authority describe
 the proposal baseline; the explicit Stage 6 goal supplied task-commit authority.
 No push, tag, publication or sibling edit.
+
+### M31 Ramen Neutral-Engine Consumer Adoption
+
+**Goal.** Move Ramen off the frozen legacy Authoring pin and onto the published
+neutral engine, so Ramen imports no retired `authoring/icot` or
+`authoring/icotcli` surface and both repositories build and pass their gates
+against one shared revision. No new Authoring behavior and no publication are in
+scope; this milestone adopts what M29 and M30 already published.
+
+**Provenance.** Ramen's approved independent track (2026-10-12) carries
+`Authoring:M31?` as a conditional prerequisite of `Ramen:M85`; the user resolved
+that edge on 2026-10-13 by keeping the unit Authoring-owned and granting sibling
+write scope for `../authoring`. M30's planning exception froze Ramen at
+Authoring `v0.0.0-20260820042256-2f73e3526583` and recorded that Ramen, not
+Authoring, owns the migration; `COMPATIBILITY.md` records the same
+frozen-consumer position. This milestone promotes that handoff.
+
+**Dependencies.** Complete M29 and M30, whose accepted records share the
+planning baseline `cb21c3e36d19290dc46a6d2bcbde71b45ea8ad30`, which is also
+`origin/main`; the adopted revision is therefore already published and no push
+or release action is required. Ramen retains write ownership of its own
+`go.mod`, imports, and CLI. If the migration needs a neutral-engine API that does
+not exist at the adopted revision, stop and report: adding it is a new Authoring
+change plus publication, outside this milestone and outside the active goal's
+`EXTERNAL_MUTATIONS: none`.
+
+**Tasks.** M31.1 inventory Ramen's `github.com/OpenUdon/authoring` imports at its
+current pin and map each retired `icot`/`icotcli` use onto its neutral
+`engine`/`interview`/`session`/`transcript`/`report` counterpart, recording an
+explicit disposition (re-implement, replace, or drop) for any behavior without an
+equivalent; M31.2 migrate Ramen onto the adopted revision, update
+`go.mod`/`go.sum`, and remove every retired import while preserving the
+operator-visible `ramen author` and `ramen icot` contracts and their gates;
+M31.3 qualify Authoring and the migrated Ramen against the exact adopted revision
+and record the adoption in both ledgers; M31.4 bounded deep review and downstream
+handoff to Ramen M85.
+
+**Acceptance.** Ramen's `go.mod` pins the adopted published Authoring revision
+and neither `authoring/icot` nor `authoring/icotcli` appears anywhere in Ramen's
+import graph. Ramen builds, vets, and passes its full standalone gate with
+`GOWORK=off`; `ramen author` and `ramen icot` keep their documented behavior or
+every change is recorded with its disposition. Authoring's own tests,
+import-boundary checks, API-surface tests, and `scripts/check-compat.sh` pass with
+the migrated consumer bound to the exact revision. No Authoring public package
+name, signature, JSON tag, or durable version changes, and no publication occurs.
+
+**Verification.** Authoring: `go test ./...`, `go vet ./...`, race tests, and
+`scripts/check-compat.sh` with a temporary workspace or modfile override binding
+the migrated Ramen and recording the effective revision for each consumer check.
+Ramen: `GOWORK=off go build ./...`, `GOWORK=off go vet ./...`, `GOWORK=off go test
+./...`, and an import grep for the retired packages. Fake providers and disposable
+local fixtures only; no live model, account, or network service.
+
+**Downstream.** Satisfies `Authoring:M31 -> Ramen:M85`; Ramen M85 and its
+dependent M86 become dispatchable. Ramen's `tech-stack.md` records the adopted
+pin and `product.md`/`architecture.md` note only what the migration changes. No
+other consumer depends on this revision; OpenUdon and Kinet are unaffected.
