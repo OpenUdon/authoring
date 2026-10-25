@@ -28,6 +28,76 @@ milestone is parallel-safe only when unordered against other active work, its
 write set is disjoint, and its inputs are frozen. Parallel safety never prunes
 downstream impact reconciliation.
 
+## Milestone families
+
+Keep the original delivery outcome stable. Small directly related fixes stay
+in the current task. Substantial required repairs use amendment records;
+optional features, broader coverage, and environment conveniences use option
+records. An amendment must name the original unmet requirement, evidence that
+it is unmet, and why a simpler implementation or verification route cannot
+satisfy it. External testing-tool repair remains optional unless the owner
+explicitly promotes it, even under `CORRECTIVE_PLANNING: auto`. A failed test
+method alone does not establish a product defect. Mocks cannot establish
+unexecuted real acceptance; an unmet original requirement needs repair or an
+explicit owner disposition.
+
+Use flat `amend-<parent>-<NN>.md` and `option-<parent>-<NN>.md` records under
+`tabilet/memory-bank/`, following the child-ID rules below. Each child owns its
+specification, tasks, and review in one file. Its first level-two heading begins
+with its child ID, and exactly one unfenced `Parent:` declaration names the
+root parent ID. Ordinary bold and trailing whitespace are accepted. Keep only
+concise links in the parent and roadmap rather than duplicate specifications.
+An initial option may be a short finding without rows; required amendments and
+selected options need full scope, acceptance, tasks, and ordinary review.
+Reclassification requires an explicit owner decision and a fresh identity
+with preserved lineage, never a silent rename.
+
+Finish independent parent work, then required amendments, then resume the
+parent's deferred acceptance checks and final review. Required amendments
+block parent acceptance; options do not. Preserve completed work and review
+counters. Suspend affected parent rows as `[!]` with the prerequisite IDs and
+resumption conditions. `Parent:` is a relationship, not a dependency on the
+completed parent; do not create that circular edge. Each child has its own
+review, which never replaces parent acceptance or resets its review counter.
+
+For multi-milestone sequencing, follow the selected goal protocol's family
+ordering rules. A strict order places required active amendments immediately
+after their parent and before downstream milestones; family execution still
+means parent work, amendments, then parent closure. Priority selection preserves
+ordinary dependencies, ownership, and parallel-safety rules.
+
+`OPTION_POLICY: confirm` is the default; `ignore` is the other value. During
+parent execution, record optional discoveries briefly and defer detailed
+planning, repeated inspection, and implementation. Under `confirm`, consolidate
+and present one proposed implementation batch after parent closure, then wait
+for an actual owner answer. Under `ignore`, defer refinement, prompts, and
+execution throughout the goal. Preserve the backlog for later consideration.
+Explicit option selection can override an earlier ignore setting for that
+work. Approved options enter a newly approved execution horizon without
+reopening the parent. Neither option policy nor launch-update policy supplies
+new authority, budget, or scope.
+
+The standalone API loop cannot select options automatically. An in-progress
+option still counts toward sole execution ownership. Controller execution
+requires an explicitly approved horizon binding each child's actual filename
+in task and closure paths; the controller never inherits Goal grants or
+expands its receipt dynamically. A suspended parent needs explicit
+`resume_after` conditions naming its sole amendment blockers. Those conditions
+gate pending and in-progress rows too; restore the parent only after amendment
+acceptance and all other dependencies pass. Preserve grants, denials,
+consumed attempts, and review counters.
+
+Retire children under their original filenames, preserving their full source,
+parent declaration, and permanent identity. Source status and Source
+specification both name the original child file. Required amendment reviews
+and acceptance must pass before parent retirement; deferred options do not
+block it. Preserve earlier rows and specification prose. A declined rowless
+option may retire as cancelled or explicitly superseded with its authorized
+disposition, Review `not applicable`, and Review iterations `0`, without
+inventing implementation rows. Supersession must identify the accepted
+successor that retains outstanding obligations. All other retirement gates
+remain in force.
+
 ## Authorization requirements
 
 Each milestone specification may contain `AUTHORIZATION_REQUIREMENTS`. It
@@ -91,6 +161,12 @@ Outside a goal, use the current scoped human request and applicable project
 rules. Missing fields preserve legacy behavior without new authority or
 automatic migration. These are instruction-level boundaries, not tool or OS
 enforcement.
+
+A changed input to a protected action changes its scope unless the governing
+goal protocol's human-approved standing revision envelope covers it. That
+envelope covers only bounded, unprivileged verification within its approved
+workspace and isolation boundaries; it never extends sudo, SSH, live-browser,
+or push authority.
 
 ## Standing corrective planning
 
@@ -177,6 +253,10 @@ dependencies. Prefer one active implementation milestone per lane.
 
 Additional rules:
 
+- Children use `amend-<parent>-<NN>.md` or `option-<parent>-<NN>.md`, sharing
+  one permanent `01` through `99` child sequence per root parent across active
+  and retired records. No recursive child families or silent renaming are
+  permitted; root lanes and archive IDs keep their independent numbering.
 - Do not reuse an ID after its status file exists, including after retirement.
   Search both active files and the history index before allocating an ID.
   Context archive IDs use an independent namespace; a matching archive ID is
@@ -386,7 +466,9 @@ per run. For a row whose acceptance depends on one:
 - Each expensive run is one attempt. Persist the row's attempt count in its
   status notes; a session change does not reset it. Stop after three
   consecutive failed attempts at the same stage (or the limit the milestone
-  sets), or when the failing stage lies outside the behavior the milestone owns.
+  or a human-approved goal budget sets), or when the failing stage lies outside
+  the behavior the milestone owns. Run the milestone's applicable cheap
+  readiness/preflight checks before each counted attempt.
   Mark the row `[!]` with a short diagnosis and options, such as a correction, a
   rescope or an environment change, and ask the user. Approval to continue sets
   a new explicit limit. Never repeat an unchanged failed attempt.
