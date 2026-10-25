@@ -51,7 +51,7 @@ Tests use fake providers and disposable fixtures.
 ## Retained attempts and evidence
 
 Private evidence root: `/home/peter/.cache/kinet-stage6-qualification`.
-Failed attempts remain recorded in [M30 status](../tabilet/memory-bank/status-M30.md):
+Failed attempts remain recorded in [M30 status](../tabilet/docs/history/status-M30.md):
 redirected test paths failed the existing /tmp-only card normalizer; changing
 TMPDIR alone was insufficient because Go 1.26 `testing.TempDir` reads GOTMPDIR;
 the all-/tmp run exceeded per-user link quota despite filesystem free space;

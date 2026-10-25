@@ -3,8 +3,8 @@
 Authoring's iCoT/icotcli compatibility surfaces are retired. Accepted removal
 source: `db4f5193bc53819be2b1bf1d8728735941e28d9e`. Qualification record commit:
 `9241c481a281ab31f3e4b6ae89f9242ae9517c6c`, with identical implementation.
-[M30 status](../tabilet/memory-bank/status-M30.md) is the package-local accepted
-record; it stays in Authoring's completed ledger under the established convention.
+[M30 status](../tabilet/docs/history/status-M30.md) is the package-local accepted
+record, retained verbatim in Authoring's retired milestone history.
 [Qualification](m30-qualification.md) records exact consumer revisions/resolution,
 commands, composed passing gates and failed evidence. Deep review passed 1/10
 with no open P1/P2 findings.

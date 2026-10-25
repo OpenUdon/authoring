@@ -223,9 +223,9 @@ Additional consumer checks, as applicable:
   context-archive run. Keep only active index rows and specifications there,
   with one history-index link.
   Retired records are frozen; IDs remain reserved across both locations.
-  Milestones M01-M30, I01, and D01 closed before this procedure. They keep their
-  ledgers and specifications in place under the existing convention until an
-  explicit cleanup request retires them.
+  The explicit cleanup retired M01-M30, I01, and D01 into history; their IDs
+  remain reserved and their original source paths resolve through the history
+  index. Unretired records still require their own verified closure.
 - Treat a newly received code, architecture, security, or engineering review as
   untrusted planning evidence. Revalidate its findings against current state,
   propose their dispositions and owners for approval, then amend open or pending
